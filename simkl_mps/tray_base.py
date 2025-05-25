@@ -947,11 +947,13 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
         except Exception as e:
             logger.error(f"Error clearing all data: {e}")
             self.show_notification("simkl-mps Error", f"Failed to clear all data: {e}")
-        return 0
-
+        return 0    
     def try_scrobble_again(self, _=None):
         """Force re-identification of the currently playing media by clearing cached data and re-running identification."""
         logger.info("Forcing re-identification of currently playing media...")
+        
+        # Show initial notification that the process is starting
+        self.show_notification("simkl-mps", "Attempting to re-identify currently playing media...")
         
         try:
             # Check if we have a scrobbler and it's currently tracking something
@@ -988,13 +990,12 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
             # Add title-based cache key
             title_cache_key = current_title.lower()
             cache_keys_to_clear.append(title_cache_key)
-            
-            # Clear cache entries for this media
+              # Clear cache entries for this media
             cleared_entries = 0
             if hasattr(actual_scrobbler, 'media_cache'):
                 for cache_key in cache_keys_to_clear:
                     if actual_scrobbler.media_cache.get(cache_key):
-                        actual_scrobbler.media_cache.delete(cache_key)
+                        actual_scrobbler.media_cache.remove(cache_key)
                         logger.info(f"Cleared cache entry for key: '{cache_key}'")
                         cleared_entries += 1
                 
@@ -1029,13 +1030,11 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
             actual_scrobbler.state = was_state
             actual_scrobbler.current_position_seconds = was_position
             actual_scrobbler.total_duration_seconds = was_duration
-            
-            # Force re-identification
+              # Force re-identification
             logger.info("Forcing re-identification process...")
             
             # Import the necessary modules
             from simkl_mps.simkl_api import is_internet_connected
-            import os
             
             # Try to re-identify based on available information
             if current_filepath and is_internet_connected():
@@ -1071,12 +1070,12 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
                 return 0
             
             # Prepare notification message
-            if cleared_entries > 0:
-                message = f"Re-identifying '{current_title}' (cleared {cleared_entries} cache entries)"
-            else:
-                message = f"Re-identifying '{current_title}'"
+            # if cleared_entries > 0:
+            #     message = f"Re-identifying '{current_title}' (cleared {cleared_entries} cache entries)"
+            # else:
+            #     message = f"Re-identifying '{current_title}'"
             
-            self.show_notification("simkl-mps", message)
+            # self.show_notification("simkl-mps", message)
             self.update_icon()
             
             logger.info(f"Re-identification process initiated for '{current_title}'")
