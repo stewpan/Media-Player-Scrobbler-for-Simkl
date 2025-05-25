@@ -681,7 +681,7 @@ class MediaScrobbler:
         self.last_update_time = None
         self.watch_time = 0
         self.state = STOPPED
-        self.previous_state = STOPPED # Should reflect the new STOPPED state
+        self.previous_state = STOPPED
         self.estimated_duration = None
         self.simkl_id = None
         self.movie_name = None
@@ -1692,9 +1692,14 @@ class MediaScrobbler:
                 try:
                     logger.info(f"[Backlog] Syncing '{title_to_sync}' (ID: {simkl_id_to_sync}, Type: {media_type_to_sync}) to Simkl.")
                     sync_result = add_to_history(payload, self.client_id, self.access_token)
-                    if sync_result:
+                    if sync_result:                        
                         success_count += 1
                         logger.info(f"[Backlog] Successfully synced '{title_to_sync}'. Removing from backlog.")
+                          # Send notification for successful sync of this item (showing only count)
+                        self._send_notification(
+                            "Simkl Sync Successful",
+                            f"Successfully synced {success_count} item(s) to your Simkl account."
+                        )
 
                         # After successful sync, fetch and cache additional details
                         cache_key_for_update = (os.path.basename(original_filepath_from_backlog).lower()
@@ -1925,9 +1930,15 @@ class MediaScrobbler:
                             
                             if isinstance(result, dict):
                                 processed = result.get('processed', 0)
-                                attempted = result.get('attempted', 0)
+                                attempted = result.get('attempted', 0)                                
                                 if processed > 0:
                                     logger.info(f"[Offline Sync Thread] Synced {processed} of {attempted} items from backlog.")
+                                    # Show notification for automatic backlog sync completion (showing only count)
+                                    self._send_notification(
+                                        "Simkl Backlog Sync Complete",
+                                        f"Successfully synced {processed} item(s) from your backlog.",
+                                        online_only=True
+                                    )
                                 elif attempted > 0 : # Attempted but none succeeded
                                     logger.info(f"[Offline Sync Thread] Attempted {attempted} backlog items, none synced this cycle.")
                         else:
@@ -2155,7 +2166,7 @@ class MediaScrobbler:
             media_desc = f"{self.media_type or 'media'}"
             if self.media_type in ['show', 'anime']:
                 if self.season is not None and self.episode is not None: media_desc += f" S{self.season}E{self.episode}"
-                elif self.episode is not None: media_desc += f" E{self.episode}" # Anime case
+                elif self.episode is not None: media_desc += f" E{self.episode}"
             logger.info(f"Completion threshold ({threshold_to_use}%) met for {media_desc}: '{self.movie_name or self.currently_tracking}' at {percentage:.2f}%.")
             self._logged_completion_for_this_item = True # Prevent re-logging for this item
         

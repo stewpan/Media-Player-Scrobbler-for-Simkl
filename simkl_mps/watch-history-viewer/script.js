@@ -1397,10 +1397,10 @@ document.addEventListener('DOMContentLoaded', () => {
         
         addExternalLink(linksContainer, item.ids?.simkl || item.simkl_id, 
             `https://simkl.com/${simklUrlType}/${item.ids?.simkl || item.simkl_id}`, 
-            'Simkl', 'https://simkl.in/favicon.ico');
+            'Simkl', 'https://simkl.in/favicon.ico');       
         addExternalLink(linksContainer, item.ids?.imdb, `https://www.imdb.com/title/${item.ids.imdb}`, 'IMDb', 'https://www.imdb.com/favicon.ico');
-        addExternalLink(linksContainer, item.ids?.tmdb, `https://www.themoviedb.org/${item.type === 'movie' ? 'movie' : 'tv'}/${item.ids.tmdb}`, 'TMDB', 'https://www.themoviedb.org/favicon.ico');
-        addExternalLink(linksContainer, item.ids?.tvdb, `https://thetvdb.com/?tab=series&id=${item.ids.tvdb}`, 'TVDB', 'https://thetvdb.com/images/favicon.ico');
+        addExternalLink(linksContainer, item.ids?.tmdb, `https://www.themoviedb.org/${item.type === 'movie' ? 'movie' : 'tv'}/${item.ids.tmdb}`, 'TMDB', 'https://www.themoviedb.org/assets/2/favicon-16x16-61a2c7a6e45f3ae4f9f8a5eff9e2f6c16e9b2516b887e3d87067d1b5f7e55fb2.png');
+        addExternalLink(linksContainer, item.ids?.tvdb, `https://thetvdb.com/?tab=series&id=${item.ids.tvdb}`, 'TVDB', 'https://cdn.thetvdb.com/images/favicon.ico');
         addExternalLink(linksContainer, item.ids?.anilist, `https://anilist.co/${item.type}/${item.ids.anilist}`, 'Anilist', 'https://anilist.co/img/icons/favicon-32x32.png');
         // Add more links as needed (MAL, etc.)
 
