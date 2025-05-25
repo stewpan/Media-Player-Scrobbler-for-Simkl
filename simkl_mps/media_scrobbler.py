@@ -2119,13 +2119,15 @@ class MediaScrobbler:
                (self.total_duration_seconds is None or abs(self.total_duration_seconds - current_total_duration) > 2): # Allow small variance
                 self.total_duration_seconds = current_total_duration
                 self.estimated_duration = current_total_duration # Update estimate
-                logger.info(f"Instance duration updated to {current_total_duration}s for '{self.movie_name}'.")
-
-            if is_new_id_for_instance or (display_name and self.movie_name != display_name): # Notify if ID or official title changes
+                logger.info(f"Instance duration updated to {current_total_duration}s for '{self.movie_name}'.")            
+            
+            # Notify if ID or official title changes
+            if is_new_id_for_instance or (display_name and self.movie_name != display_name):
                 notify_text = f"Playing: '{self.movie_name}'"
                 if self.media_type in ['show', 'anime']:
-                    if self.season is not None and self.episode is not None: notify_text += f" S{self.season}E{self.episode}"
-                    elif self.episode is not None : notify_text += f" E{self.episode}" # Anime
+                    # Use the parameters passed to this function, not the instance variables (which may be stale)
+                    if season is not None and episode is not None: notify_text += f" S{season}E{episode}"
+                    elif episode is not None : notify_text += f" E{episode}" # Anime
                 elif year is not None: notify_text += f" ({year})" # Use year from params if available
                 elif new_data_to_cache.get('year') is not None: notify_text += f" ({new_data_to_cache.get('year')})"
 
