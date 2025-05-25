@@ -734,13 +734,14 @@ class MediaScrobbler:
                 cached_title.lower() == show_title_lower):
                 return cache_data
                 
-        return None
-
-    def _identify_media_from_filepath(self, filepath, guessit_info=None):
+        return None    
+    def _identify_media_from_filepath(self, filepath, guessit_info=None, retry_attempt=1):
         """
         Identifies media (movie or episode) using Simkl /search/file and updates state.
-        Handles offline fallback using guessit.
+        Handles offline fallback using guessit with retry mechanism.
         """
+        max_retries = 3
+        
         if not self.client_id:
             logger.warning("Cannot identify media from filepath: Missing Client ID.")
             return
@@ -770,15 +771,53 @@ class MediaScrobbler:
                     self._apply_cached_info_to_state(existing_episode_info)
                     return
 
+        # Check for invalid guessit detection and retry if needed
+        if guessit_info:
+            title = guessit_info.get('title')
+            year = guessit_info.get('year')
+            if title == '?' or year == 0:
+                if retry_attempt <= max_retries:
+                    logger.warning(f"Invalid guessit detection for file '{filepath}' (attempt {retry_attempt}/{max_retries}): title='{title}', year={year}. Retrying...")
+                    # Retry with fresh guessit parsing
+                    try:
+                        if guessit:
+                            new_guessit_info = guessit.guessit(os.path.basename(filepath))
+                            # Recursive call with incremented retry counter
+                            return self._identify_media_from_filepath(filepath, new_guessit_info, retry_attempt + 1)
+                    except Exception as e:
+                        logger.error(f"Error during guessit retry: {e}")
+                else:
+                    logger.error(f"Failed to get valid detection after {max_retries} attempts for file '{filepath}'. Skipping.")
+                    self._send_notification("Media Detection Failed", f" File skipped. Could not identify '{os.path.basename(filepath)}' after {max_retries} attempts.")
+                    return
+
         if not is_internet_connected():
             logger.warning(f"Offline: Cannot identify '{filepath}' via Simkl API. Using guessit fallback if available.")
-            self._handle_offline_identification_fallback(filepath, guessit_info, cache_key)
+            self._handle_offline_identification_fallback(filepath, guessit_info, cache_key, retry_attempt)
             return
 
         try:
-            logger.info(f"Querying Simkl API with file: '{filepath}'")
+            logger.info(f"Querying Simkl API with file: '{filepath}' (attempt {retry_attempt}/{max_retries})")
             result = search_file(filepath, self.client_id)
 
+            # Check for invalid Simkl show detection (e.g., title='?' or year=0)
+            if result:
+                media_item = result.get('show') or result.get('movie')
+                if media_item:
+                    title = media_item.get('title', '')
+                    year = media_item.get('year', 0)
+                    if title == '?' or year == 0:
+                        if retry_attempt <= max_retries:
+                            logger.warning(f"Invalid Simkl detection for file '{filepath}' (attempt {retry_attempt}/{max_retries}): Title='{title}', Year={year}. Retrying...")
+                            # Wait a moment before retry
+                            time.sleep(1)
+                            return self._identify_media_from_filepath(filepath, guessit_info, retry_attempt + 1)
+                        else:
+                            logger.error(f"Failed to get valid Simkl detection after {max_retries} attempts for file '{filepath}'. Skipping.")
+                            self._send_notification("Simkl Detection Failed", f" File skipped. Could not identify '{os.path.basename(filepath)}' after {max_retries} attempts.")
+                            return  # Do not track or cache invalid entries
+
+            # Existing logic for processing valid results
             if result:
                 logger.info(f"SIMKL API returned result for file search: {result}")
                 self._process_simkl_search_result(result, filepath, cache_key, "simkl_search_file")
@@ -795,14 +834,15 @@ class MediaScrobbler:
         except RequestException as e:
             logger.warning(f"Network error during Simkl file identification for '{filepath}': {e}")
             if self.media_type == 'episode': # media_type here is the initial guessit type
-                 self.backlog_cleaner.add(filepath, os.path.basename(filepath), additional_data={"type": "episode", "original_filepath": filepath, "source": "failed_file_search"})
+                self.backlog_cleaner.add(filepath, os.path.basename(filepath), additional_data={"type": "episode", "original_filepath": filepath, "source": "failed_file_search"})
             self._store_guessit_fallback_data(filepath, guessit_info, cache_key) # Fallback on network error
         except Exception as e:
             logger.error(f"Error during Simkl file identification for '{filepath}': {e}", exc_info=True)
-            self._store_guessit_fallback_data(filepath, guessit_info, cache_key) # Fallback on other errors
-
-    def _handle_offline_identification_fallback(self, filepath, guessit_info, cache_key):
-        """Handles offline identification using guessit."""
+            self._store_guessit_fallback_data(filepath, guessit_info, cache_key) # Fallback on other errors    
+    def _handle_offline_identification_fallback(self, filepath, guessit_info, cache_key, retry_attempt=1):
+        """Handles offline identification using guessit with retry mechanism."""
+        max_retries = 3
+        
         if not guessit:
             logger.warning("Guessit library not available for offline fallback.")
             return
@@ -813,6 +853,25 @@ class MediaScrobbler:
                 info_to_use = guessit.guessit(os.path.basename(filepath))
             
             if isinstance(info_to_use, dict) and info_to_use.get('title'):
+                # Check for invalid guessit detection and retry if needed
+                title = info_to_use.get('title')
+                year = info_to_use.get('year', 0)
+                if title == '?' or year == 0:
+                    if retry_attempt <= max_retries:
+                        logger.warning(f"Invalid offline guessit detection for file '{filepath}' (attempt {retry_attempt}/{max_retries}): title='{title}', year={year}. Retrying...")
+                        # Wait a moment and retry with fresh parsing
+                        time.sleep(1)
+                        try:
+                            new_guessit_info = guessit.guessit(os.path.basename(filepath))
+                            return self._handle_offline_identification_fallback(filepath, new_guessit_info, cache_key, retry_attempt + 1)
+                        except Exception as e:
+                            logger.error(f"Error during offline guessit retry: {e}")
+                            return
+                    else:
+                        logger.error(f"Failed to get valid offline detection after {max_retries} attempts for file '{filepath}'. Skipping.")
+                        self._send_notification("Offline Media Detection Failed", f" File skipped. Could not identify '{os.path.basename(filepath)}' after {max_retries} attempts.", offline_only=True)
+                        return
+                
                 self.media_type = info_to_use.get('type', 'episode') # Guessit 'episode' or 'movie'
                 self.movie_name = info_to_use.get('title') # This becomes the stand-in for official title offline
                 self.season = info_to_use.get('season')
@@ -838,7 +897,19 @@ class MediaScrobbler:
                     display_text += f" S{self.season}E{self.episode}"
                 self._send_notification("Offline Media Detection", display_text, offline_only=True)
             else:
-                logger.warning(f"Guessit couldn't extract valid title from '{filepath}' for offline fallback.")
+                if retry_attempt <= max_retries:
+                    logger.warning(f"Guessit couldn't extract valid title from '{filepath}' for offline fallback (attempt {retry_attempt}/{max_retries}). Retrying...")
+                    # Wait a moment and retry
+                    time.sleep(1)
+                    try:
+                        new_guessit_info = guessit.guessit(os.path.basename(filepath))
+                        return self._handle_offline_identification_fallback(filepath, new_guessit_info, cache_key, retry_attempt + 1)
+                    except Exception as e:
+                        logger.error(f"Error during offline guessit retry: {e}")
+                        return
+                else:
+                    logger.error(f"Guessit couldn't extract valid title from '{filepath}' for offline fallback after {max_retries} attempts. Skipping.")
+                    self._send_notification("Offline Media Detection Failed", f" File skipped. Could not extract title from '{os.path.basename(filepath)}' after {max_retries} attempts.", offline_only=True)
         except Exception as e:
             logger.error(f"Error using guessit for offline fallback: {e}", exc_info=True)
 
@@ -1731,7 +1802,7 @@ class MediaScrobbler:
                     item_data['_api_details_for_history'] = api_details # Store for watch history
                     return True, item_data, None
                 else:
-                    return False, item_data, f"Failed to fetch details for Simkl ID {resolved_simkl_id}"
+                    return False, item_data, f"Failed to fetch details for Simkl ID {resolved_simkl_id}"            
             except Exception as e:
                 return False, item_data, f"API error fetching details for Simkl ID {resolved_simkl_id}: {e}"
 
@@ -1741,11 +1812,37 @@ class MediaScrobbler:
         
         logger.info(f"[Backlog Resolve] Attempting to identify item: Key='{item_key}', Title='{search_term_title}', File='{original_filepath}', TypeHint='{media_type_guess}'")
         
+        def _has_episode_pattern(title):
+            """Check if title contains TV episode patterns like S01E02, 1x02, etc."""
+            if not title:
+                return False
+            episode_patterns = [
+                r'[sS]\d{1,3}[eE]\d{1,4}',  # S01E02, s1e2
+                r'\d{1,3}x\d{1,4}',         # 1x02, 10x5
+                r'[sS]\d{1,3}\.?[eE]?\d{1,4}', # S01.E02, S01.02, S0102
+                r'episode\s*\d{1,4}',       # episode 1, episode 12
+                r'\s\d{1,2}\s',             # space-padded episode numbers (anime)
+            ]
+            for pattern in episode_patterns:
+                if re.search(pattern, title, re.IGNORECASE):
+                    return True
+            return False
+        
         api_search_result = None
         try:
             if original_filepath and media_type_guess in ['episode', 'show', 'anime']:
                 api_search_result = search_file(original_filepath, self.client_id)
-            elif media_type_guess == 'movie' or not original_filepath : # Movie search or title search if no file
+            elif media_type_guess in ['episode', 'show', 'anime'] or _has_episode_pattern(search_term_title):
+                # Use episode-appropriate search even without filepath if title suggests it's an episode
+                logger.info(f"[Backlog Resolve] Title '{search_term_title}' appears to be TV/anime episode, using file search method")
+                # For episodes without filepath, we can try using the title as if it were a filename
+                # This works because search_file can handle titles that look like episode filenames
+                api_search_result = search_file(search_term_title, self.client_id)
+            elif media_type_guess == 'movie':
+                api_search_result = search_movie(search_term_title, self.client_id, self.access_token)
+            elif not original_filepath:
+                # Fallback: no filepath and no clear type hint - try movie search
+                logger.info(f"[Backlog Resolve] No filepath and ambiguous type, defaulting to movie search for '{search_term_title}'")
                 api_search_result = search_movie(search_term_title, self.client_id, self.access_token)
             else: # Should not happen if logic is sound
                  return False, item_data, "Could not determine search method for backlog item."
@@ -2060,10 +2157,11 @@ class MediaScrobbler:
             logger.info(f"Completion threshold ({threshold_to_use}%) met for {media_desc}: '{self.movie_name or self.currently_tracking}' at {percentage:.2f}%.")
             self._logged_completion_for_this_item = True # Prevent re-logging for this item
         
-        return is_now_complete
-
-    def _store_guessit_fallback_data(self, filepath, guessit_info, cache_key_override=None):
-        """Stores fallback data from guessit when Simkl API identification fails or is unavailable."""
+        return is_now_complete    
+    def _store_guessit_fallback_data(self, filepath, guessit_info, cache_key_override=None, retry_attempt=1):
+        """Stores fallback data from guessit when Simkl API identification fails or is unavailable with retry mechanism."""
+        max_retries = 3
+        
         if not guessit:
             logger.debug("Guessit not available, cannot store fallback data.")
             return
@@ -2073,9 +2171,24 @@ class MediaScrobbler:
 
         try:
             raw_title_from_guessit = guessit_info.get('title')
-            if not raw_title_from_guessit:
-                logger.warning(f"Cannot store guessit fallback: Missing title in {guessit_info}")
-                return
+            year_from_guessit = guessit_info.get('year', 0)
+            
+            # Check for invalid detection and retry if needed
+            if not raw_title_from_guessit or raw_title_from_guessit == '?' or year_from_guessit == 0:
+                if retry_attempt <= max_retries:
+                    logger.warning(f"Invalid guessit fallback data for file '{filepath}' (attempt {retry_attempt}/{max_retries}): title='{raw_title_from_guessit}', year={year_from_guessit}. Retrying...")
+                    # Wait a moment and retry with fresh parsing
+                    time.sleep(1)
+                    try:
+                        new_guessit_info = guessit.guessit(os.path.basename(filepath))
+                        return self._store_guessit_fallback_data(filepath, new_guessit_info, cache_key_override, retry_attempt + 1)
+                    except Exception as e:
+                        logger.error(f"Error during guessit fallback retry: {e}")
+                        return
+                else:
+                    logger.error(f"Failed to get valid guessit fallback data after {max_retries} attempts for file '{filepath}'. Skipping.")
+                    self._send_notification("Guessit Fallback Failed", f" File skipped. Could not extract fallback data for '{os.path.basename(filepath)}' after {max_retries} attempts.")
+                    return
 
             media_type_from_guessit = guessit_info.get('type', 'episode') # 'episode' or 'movie'
             season_from_guessit = guessit_info.get('season')
@@ -2096,7 +2209,7 @@ class MediaScrobbler:
                 "source": "guessit_fallback_stored",
                 "original_filepath": filepath # Crucial for later re-identification attempts
             }
-            
+
             logger.info(f"Storing guessit fallback for '{raw_title_from_guessit}' (Key: {cache_key_to_use}): "
                         f"Type='{media_type_from_guessit}', S={season_from_guessit}, E={episode_from_guessit}")
             self.media_cache.set(cache_key_to_use, fallback_data)

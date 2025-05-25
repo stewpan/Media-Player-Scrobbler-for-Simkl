@@ -15,6 +15,8 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 import abc
 import pystray
+import tkinter as tk
+from tkinter import messagebox
 
 # Import API and credential functions
 from simkl_mps.simkl_api import get_user_settings
@@ -74,8 +76,50 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
             
         Returns:
             The new threshold value (int) entered by the user, or None if cancelled.
-        """
+         """       
         pass
+            
+    def _show_confirmation_dialog(self, title, message):
+        """
+        Show a simple Yes/No confirmation dialog using tkinter messagebox.
+        Returns True if user clicks Yes, False if user clicks No or closes dialog.
+        """
+        try:
+            import tkinter as tk
+            from tkinter import messagebox
+            import threading
+            
+            result = [False]  # Use list to allow modification in thread
+            
+            def show_dialog():
+                try:
+                    # Create a temporary root window
+                    root = tk.Tk()
+                    root.withdraw()  # Hide the root window
+                    root.attributes('-topmost', True)
+                    root.lift()
+                    root.focus_force()
+                    
+                    # Show the Yes/No dialog
+                    answer = messagebox.askyesno(title, message, parent=root)
+                    result[0] = answer
+                    
+                    # Clean up
+                    root.destroy()
+                except Exception as e:
+                    logger.error(f"Error in dialog thread: {e}")
+                    result[0] = False
+            
+            # Run dialog in main thread
+            thread = threading.Thread(target=show_dialog)
+            thread.start()
+            thread.join()  # Wait for completion
+            
+            return result[0]
+        except Exception as e:
+            logger.error(f"Error showing confirmation dialog: {e}")
+            return False
+            
 
     def __init__(self):
         self.scrobbler = None
@@ -635,7 +679,9 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
         # The menu action returns immediately, work happens in background threads.
         return 0 # Return value expected by some tray libraries
 
-    # --- End Watch Threshold Logic ---    def check_first_run(self):
+    # --- End Watch Threshold Logic --- 
+    
+    def check_first_run(self):
         """Check if this is the first time the app is being run"""
         # Platform-specific implementation required
         self.is_first_run = False # Default value, should be overridden
@@ -659,8 +705,9 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
         else:
             menu_items.append(pystray.MenuItem("Start Monitoring", self.start_monitoring))
         menu_items.append(pystray.Menu.SEPARATOR)
+        menu_items.append(pystray.MenuItem("Watch History", self.open_watch_history))
 
-        # --- History & Tools submenu ---
+        # --- Tools submenu ---
         threshold_submenu = pystray.Menu(
             pystray.MenuItem('65%', lambda: self._set_preset_threshold(65), checked=lambda item: is_preset(65), radio=True),
             pystray.MenuItem('80% (Default)', lambda: self._set_preset_threshold(80), checked=lambda item: is_preset(80), radio=True),
@@ -668,22 +715,22 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
             pystray.Menu.SEPARATOR,
             pystray.MenuItem('Custom...', self.set_custom_watch_threshold)
         )
-        menu_items.append(pystray.MenuItem("History and Tools", pystray.Menu(
-            pystray.MenuItem("Local Watch History", self.open_watch_history),
+        menu_items.append(pystray.MenuItem("Tools", pystray.Menu(
+            pystray.Menu.SEPARATOR,
+            pystray.MenuItem("Try Scrobble Again", self.try_scrobble_again),
             pystray.MenuItem("Process Backlog Now", self.process_backlog),
+            pystray.MenuItem("Watch Threshold (%)", threshold_submenu),
+            pystray.Menu.SEPARATOR,
             pystray.MenuItem("Open Logs", self.open_logs),
+            pystray.MenuItem("Open Config Directory", self.open_config_dir),
+            pystray.Menu.SEPARATOR,
             pystray.MenuItem("Clear Cache", self.clear_cache),
             pystray.MenuItem("Clear All Data and Logs", self.clear_all_data),
         )))
 
-        # --- Settings submenu ---
-        menu_items.append(pystray.MenuItem("Settings", pystray.Menu(
-            pystray.MenuItem("Watch Threshold (%)", threshold_submenu),
-            pystray.MenuItem("Open Config Directory", self.open_config_dir),
-        )))
 
-        # --- Online submenu ---
-        menu_items.append(pystray.MenuItem("Online", pystray.Menu(
+        # --- SIMKL submenu ---
+        menu_items.append(pystray.MenuItem("SIMKL", pystray.Menu(
             pystray.MenuItem("SIMKL Website", self.open_simkl),
             pystray.MenuItem("SIMKL Watch History", self.open_simkl_history),
         )))
@@ -693,16 +740,29 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
             pystray.MenuItem("Check for Updates", lambda: self.check_updates_thread() if hasattr(self, 'check_updates_thread') else None),
             pystray.MenuItem("Help", self.show_help),
             pystray.MenuItem("About", self.show_about),
-        )))
-
-        # --- Exit (always last, separated) ---
+        )))        # --- Exit (always last, separated) ---
         menu_items.append(pystray.Menu.SEPARATOR)
         menu_items.append(pystray.MenuItem("Exit", self.exit_app))
 
         return menu_items
-
+        
     def clear_cache(self, _=None):
         """Clear disk and in-memory cache, backlog, and update tray menu."""
+        logger.info("Clear cache requested from tray menu...")
+        
+        # Show confirmation dialog
+        if not self._show_confirmation_dialog(
+            "Clear Cache",
+            "Are you sure you want to clear all cached media identification data and backlog?\n\n"
+            "This will:\n"
+            "• Clear media cache files\n"
+            "• Clear backlog data\n"
+            "• Reset currently tracked media\n\n"
+            "Backup or Process Backlog Before this to Prevent Losses. This action cannot be undone."
+        ):
+            logger.info("Clear cache cancelled by user")
+            return 0
+        
         logger.info("Clearing cache from tray menu...")
         try:
             from simkl_mps.media_cache import MediaCache
@@ -726,8 +786,29 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
             logger.error(f"Error clearing cache: {e}")
             self.show_notification("simkl-mps Error", f"Failed to clear cache: {e}")
         return 0    
+    
     def clear_all_data(self, _=None):
         """Clear all user data, logs, cache, backlog, playback log, watch history, and .env file."""
+        logger.info("Clear all data requested from tray menu...")
+        
+        # Show confirmation dialog
+        if not self._show_confirmation_dialog(
+            "Clear All Data",
+            "⚠️ WARNING: This will permanently delete ALL application data! ⚠️\n\n"
+            "This will remove:\n"
+            "• All cached media data\n"
+            "• All log files\n"
+            "• Backlog and playback history\n"
+            "• Watch history\n"
+            "• All settings and credentials\n"
+            "• Environment configuration\n\n"
+            "The application will EXIT after clearing data.\n\n"
+            "This action CANNOT be undone!\n\n"
+            "Are you absolutely sure you want to proceed?"
+        ):
+            logger.info("Clear all data cancelled by user")
+            return 0
+        
         logger.info("Clearing all data and logs from tray menu...")
         cleared_items = []
         failed_items = []
@@ -866,4 +947,142 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
         except Exception as e:
             logger.error(f"Error clearing all data: {e}")
             self.show_notification("simkl-mps Error", f"Failed to clear all data: {e}")
+        return 0
+
+    def try_scrobble_again(self, _=None):
+        """Force re-identification of the currently playing media by clearing cached data and re-running identification."""
+        logger.info("Forcing re-identification of currently playing media...")
+        
+        try:
+            # Check if we have a scrobbler and it's currently tracking something
+            if not self.scrobbler:
+                self.show_notification("simkl-mps", "No scrobbler instance available.")
+                return 0
+            
+            # Get the actual scrobbler instance (might be nested in monitor)
+            actual_scrobbler = self.scrobbler
+            if hasattr(self.scrobbler, 'monitor') and hasattr(self.scrobbler.monitor, 'scrobbler'):
+                actual_scrobbler = self.scrobbler.monitor.scrobbler
+            
+            # Check if something is currently being tracked
+            if not actual_scrobbler.currently_tracking:
+                self.show_notification("simkl-mps", "No media is currently being tracked.")
+                return 0
+            
+            current_title = actual_scrobbler.currently_tracking
+            current_filepath = actual_scrobbler.current_filepath
+            
+            logger.info(f"Re-identifying currently playing media: '{current_title}' (filepath: '{current_filepath}')")
+            
+            # Clear cached data for the current media
+            from simkl_mps.media_cache import MediaCache
+            
+            # Determine cache keys to clear
+            cache_keys_to_clear = []
+            
+            # Add filepath-based cache key if available
+            if current_filepath:
+                filepath_cache_key = os.path.basename(current_filepath).lower()
+                cache_keys_to_clear.append(filepath_cache_key)
+                
+            # Add title-based cache key
+            title_cache_key = current_title.lower()
+            cache_keys_to_clear.append(title_cache_key)
+            
+            # Clear cache entries for this media
+            cleared_entries = 0
+            if hasattr(actual_scrobbler, 'media_cache'):
+                for cache_key in cache_keys_to_clear:
+                    if actual_scrobbler.media_cache.get(cache_key):
+                        actual_scrobbler.media_cache.delete(cache_key)
+                        logger.info(f"Cleared cache entry for key: '{cache_key}'")
+                        cleared_entries += 1
+                
+                # Save the updated cache
+                actual_scrobbler.media_cache._save_cache()
+            
+            # Clear scrobbler state for re-identification (but keep tracking active)
+            logger.info("Clearing scrobbler identification state for re-identification...")
+            
+            # Store current tracking state
+            was_tracking = actual_scrobbler.currently_tracking
+            was_filepath = actual_scrobbler.current_filepath
+            was_start_time = actual_scrobbler.start_time
+            was_watch_time = actual_scrobbler.watch_time
+            was_state = actual_scrobbler.state
+            was_position = actual_scrobbler.current_position_seconds
+            was_duration = actual_scrobbler.total_duration_seconds
+            
+            # Clear identification-related state (but preserve tracking progress)
+            actual_scrobbler.simkl_id = None
+            actual_scrobbler.movie_name = None
+            actual_scrobbler.media_type = None
+            actual_scrobbler.season = None
+            actual_scrobbler.episode = None
+            actual_scrobbler.completed = False
+            
+            # Keep the tracking active with preserved state
+            actual_scrobbler.currently_tracking = was_tracking
+            actual_scrobbler.current_filepath = was_filepath
+            actual_scrobbler.start_time = was_start_time
+            actual_scrobbler.watch_time = was_watch_time
+            actual_scrobbler.state = was_state
+            actual_scrobbler.current_position_seconds = was_position
+            actual_scrobbler.total_duration_seconds = was_duration
+            
+            # Force re-identification
+            logger.info("Forcing re-identification process...")
+            
+            # Import the necessary modules
+            from simkl_mps.simkl_api import is_internet_connected
+            import os
+            
+            # Try to re-identify based on available information
+            if current_filepath and is_internet_connected():
+                # Try file-based identification first
+                logger.info(f"Attempting file-based re-identification for: '{current_filepath}'")
+                  # Parse with guessit to get media type hint
+                guessit_info = None
+                try:
+                    import guessit
+                    if guessit:
+                        guessit_info = guessit.guessit(os.path.basename(current_filepath))
+                        logger.info(f"Guessit info for re-identification: {guessit_info}")
+                except ImportError:
+                    logger.warning("Guessit library not available for re-identification")
+                except Exception as e:
+                    logger.warning(f"Guessit parsing failed during re-identification: {e}")
+                
+                # Call the identification method directly
+                actual_scrobbler._identify_media_from_filepath(current_filepath, guessit_info)
+                
+            elif current_title and is_internet_connected():
+                # Try title-based identification
+                logger.info(f"Attempting title-based re-identification for: '{current_title}'")
+                actual_scrobbler._identify_movie(current_title)
+                
+            else:
+                # Offline or no data available
+                logger.warning("Cannot re-identify: No internet connection or insufficient data")
+                if not is_internet_connected():
+                    self.show_notification("simkl-mps", "Cannot re-identify: No internet connection.")
+                else:
+                    self.show_notification("simkl-mps", "Cannot re-identify: Insufficient media information.")
+                return 0
+            
+            # Prepare notification message
+            if cleared_entries > 0:
+                message = f"Re-identifying '{current_title}' (cleared {cleared_entries} cache entries)"
+            else:
+                message = f"Re-identifying '{current_title}'"
+            
+            self.show_notification("simkl-mps", message)
+            self.update_icon()
+            
+            logger.info(f"Re-identification process initiated for '{current_title}'")
+            
+        except Exception as e:
+            logger.error(f"Error during try scrobble again: {e}", exc_info=True)
+            self.show_notification("simkl-mps Error", f"Failed to re-identify media: {e}")
+        
         return 0
