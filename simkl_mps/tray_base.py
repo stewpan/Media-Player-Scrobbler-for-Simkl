@@ -953,7 +953,6 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
         logger.info("Forcing re-identification of currently playing media...")
         
         # Show initial notification that the process is starting
-        self.show_notification("simkl-mps", "Attempting to re-identify currently playing media...")
         
         try:
             # Check if we have a scrobbler and it's currently tracking something
@@ -975,10 +974,8 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
             current_filepath = actual_scrobbler.current_filepath
             
             logger.info(f"Re-identifying currently playing media: '{current_title}' (filepath: '{current_filepath}')")
-            
-            # Clear cached data for the current media
-            from simkl_mps.media_cache import MediaCache
-            
+            self.show_notification("simkl-mps", f"Attempting to re-identify '{current_title}'...")
+                    
             # Determine cache keys to clear
             cache_keys_to_clear = []
             
