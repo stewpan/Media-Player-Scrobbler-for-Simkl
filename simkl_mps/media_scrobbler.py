@@ -241,20 +241,19 @@ class MediaScrobbler:
                 if now - last_log_time > 60: # Log connection errors at most once per minute per player
                     logger.warning(f"Could not connect to {process_name} web interface. Error: {e}")
                     self._last_connection_error_log[process_name] = now
-                    
-                    # Send notification about web interface connection error
-                    player_type = self._get_player_type(process_name_lower)
-                    if player_type:
-                        config_instructions = self._get_player_config_instructions(player_type)
-                        logger.info(f"[DEBUG] Sending notification for {player_type} connection error: {config_instructions}")
-                        self._send_notification(
-                            f"{player_type} Connection Error",
-                            f"Could not connect to {player_type} web interface. {config_instructions}",
-                            online_only=False
-                        )
+                    # Only notify if currently tracking a file
+                    if self.currently_tracking:
+                        player_type = self._get_player_type(process_name_lower)
+                        if player_type:
+                            config_instructions = self._get_player_config_instructions(player_type)
+                            logger.info(f"[DEBUG] Sending notification for {player_type} connection error: {config_instructions}")
+                            self._send_notification(
+                                f"{player_type} Connection Error",
+                                f"Could not connect to {player_type}. {config_instructions}",
+                                online_only=False
+                            )
             except Exception as e:
                 logger.error(f"Error getting pos/dur from {process_name} ({getattr(integration, '__class__', type(integration)).__name__}): {e}", exc_info=True)
-        
         return None, None
 
 
@@ -525,23 +524,20 @@ class MediaScrobbler:
             pos, dur = self.get_player_position_duration(process_name)        
             position_updated_from_player = False
         if pos is not None and dur is not None and dur > 0:
-            if self.total_duration_seconds is None or abs(self.total_duration_seconds - dur) > 2: # Allow small variance
+            if self.total_duration_seconds is None or abs(self.total_duration_seconds - dur) > 2:
                 logger.info(f"Updating total duration for '{self.movie_name or self.currently_tracking}' from {self.total_duration_seconds}s to {dur}s via player.")
                 self.total_duration_seconds = dur
-                self.estimated_duration = dur # Player duration is a good estimate
-
+                self.estimated_duration = dur
             # Detect seeks
             if self.state == PLAYING and self.current_position_seconds is not None:
-                # Compare current player position with expected position based on elapsed time
                 expected_pos_increase = elapsed_since_last_update
                 actual_pos_increase = pos - self.current_position_seconds
-                # If the difference between actual and expected increase is significant, it's likely a seek
-                # Threshold for seek detection (e.g., 2 seconds)
-                seek_threshold = 2.0 
-                if abs(actual_pos_increase - expected_pos_increase) > seek_threshold and elapsed_since_last_update > 0.1:
+                seek_threshold = 2.0
+                min_seek_display = 0.5
+                # Only log seek if significant and not a tiny/zero change
+                if abs(actual_pos_increase - expected_pos_increase) > seek_threshold and abs(actual_pos_increase) > min_seek_display and elapsed_since_last_update > 0.1:
                     logger.info(f"Seek detected for '{self.movie_name or self.currently_tracking}': Position changed by {actual_pos_increase:.1f}s in {elapsed_since_last_update:.1f}s (Expected ~{expected_pos_increase:.1f}s).")
                     self._log_playback_event("seek", {"previous_position_seconds": round(self.current_position_seconds, 2), "new_position_seconds": pos})
-
             self.current_position_seconds = pos
             position_updated_from_player = True
         
@@ -685,7 +681,7 @@ class MediaScrobbler:
         self.last_update_time = None
         self.watch_time = 0
         self.state = STOPPED
-        self.previous_state = STOPPED # Should reflect the new STOPPED state
+        self.previous_state = STOPPED
         self.estimated_duration = None
         self.simkl_id = None
         self.movie_name = None
@@ -696,8 +692,7 @@ class MediaScrobbler:
         self.media_type = None
         self.season = None
         self.episode = None
-        # self.last_backlog_attempt_time should persist for items, not cleared globally here.
-
+        # self.last_backlog_attempt_time should persist for items, not cleared globally here.        
         return {
             "raw_title": final_raw_title,
             "movie_name": final_movie_name,
@@ -705,7 +700,7 @@ class MediaScrobbler:
             "media_type": final_media_type,
             "season": final_season,
             "episode": final_episode,
-            "state": STOPPED, # Final state is always STOPPED
+            "state": STOPPED,
             "progress": self._calculate_percentage(use_position=True) or self._calculate_percentage(use_accumulated=True), # Recalculate with final values
             "watched_seconds": round(final_watch_time, 2),
             "current_position_seconds": final_pos,
@@ -713,11 +708,40 @@ class MediaScrobbler:
             "estimated_duration_seconds": final_estimated_duration
         }
 
-    def _identify_media_from_filepath(self, filepath, guessit_info=None):
+    def _find_cached_episode(self, show_title, season, episode):
+        """
+        Find a cached episode entry for the same show+season+episode combination.
+        Returns the cached info if found, None otherwise.
+        """
+        all_cached_entries = self.media_cache.get_all()
+        show_title_lower = show_title.lower()
+        
+        for cache_key, cache_data in all_cached_entries.items():
+            if not isinstance(cache_data, dict):
+                continue
+                
+            # Check if this entry matches our show+season+episode
+            cached_title = cache_data.get('movie_name', '')
+            cached_season = cache_data.get('season')
+            cached_episode = cache_data.get('episode')
+            cached_simkl_id = cache_data.get('simkl_id')
+            
+            # Must have a valid Simkl ID and match show+season+episode
+            if (cached_simkl_id and 
+                not str(cached_simkl_id).startswith("temp_") and
+                cached_season == season and 
+                cached_episode == episode and
+                cached_title.lower() == show_title_lower):
+                return cache_data
+                
+        return None    
+    def _identify_media_from_filepath(self, filepath, guessit_info=None, retry_attempt=1):
         """
         Identifies media (movie or episode) using Simkl /search/file and updates state.
-        Handles offline fallback using guessit.
+        Handles offline fallback using guessit with retry mechanism.
         """
+        max_retries = 3
+        
         if not self.client_id:
             logger.warning("Cannot identify media from filepath: Missing Client ID.")
             return
@@ -730,15 +754,70 @@ class MediaScrobbler:
             self._apply_cached_info_to_state(cached_info)
             return
 
+        # For episodes, check if we have cached info for the same show+season+episode combination
+        # to avoid redundant API calls for the same episode with different filenames
+        if guessit_info and guessit_info.get('type') == 'episode':
+            show_title = guessit_info.get('title')
+            season = guessit_info.get('season')
+            episode = guessit_info.get('episode')
+            
+            if show_title and season is not None and episode is not None:
+                # Check all cached entries for the same show+season+episode
+                existing_episode_info = self._find_cached_episode(show_title, season, episode)
+                if existing_episode_info:
+                    logger.info(f"Found existing cached episode for '{show_title}' S{season}E{episode}: ID {existing_episode_info['simkl_id']}")
+                    # Cache this filename pointing to the same episode info to avoid future lookups
+                    self.media_cache.set(cache_key, existing_episode_info)
+                    self._apply_cached_info_to_state(existing_episode_info)
+                    return
+
+        # Check for invalid guessit detection and retry if needed
+        if guessit_info:
+            title = guessit_info.get('title')
+            year = guessit_info.get('year')
+            if title == '?' or year == 0:
+                if retry_attempt <= max_retries:
+                    logger.warning(f"Invalid guessit detection for file '{filepath}' (attempt {retry_attempt}/{max_retries}): title='{title}', year={year}. Retrying...")
+                    # Retry with fresh guessit parsing
+                    try:
+                        if guessit:
+                            new_guessit_info = guessit.guessit(os.path.basename(filepath))
+                            # Recursive call with incremented retry counter
+                            return self._identify_media_from_filepath(filepath, new_guessit_info, retry_attempt + 1)
+                    except Exception as e:
+                        logger.error(f"Error during guessit retry: {e}")
+                else:
+                    logger.error(f"Failed to get valid detection after {max_retries} attempts for file '{filepath}'. Skipping.")
+                    self._send_notification("Media Detection Failed", f" File skipped. Could not identify '{os.path.basename(filepath)}' after {max_retries} attempts.")
+                    return
+
         if not is_internet_connected():
             logger.warning(f"Offline: Cannot identify '{filepath}' via Simkl API. Using guessit fallback if available.")
-            self._handle_offline_identification_fallback(filepath, guessit_info, cache_key)
+            self._handle_offline_identification_fallback(filepath, guessit_info, cache_key, retry_attempt)
             return
 
         try:
-            logger.info(f"Querying Simkl API with file: '{filepath}'")
+            logger.info(f"Querying Simkl API with file: '{filepath}' (attempt {retry_attempt}/{max_retries})")
             result = search_file(filepath, self.client_id)
 
+            # Check for invalid Simkl show detection (e.g., title='?' or year=0)
+            if result:
+                media_item = result.get('show') or result.get('movie')
+                if media_item:
+                    title = media_item.get('title', '')
+                    year = media_item.get('year', 0)
+                    if title == '?' or year == 0:
+                        if retry_attempt <= max_retries:
+                            logger.warning(f"Invalid Simkl detection for file '{filepath}' (attempt {retry_attempt}/{max_retries}): Title='{title}', Year={year}. Retrying...")
+                            # Wait a moment before retry
+                            time.sleep(1)
+                            return self._identify_media_from_filepath(filepath, guessit_info, retry_attempt + 1)
+                        else:
+                            logger.error(f"Failed to get valid Simkl detection after {max_retries} attempts for file '{filepath}'. Skipping.")
+                            self._send_notification("Simkl Detection Failed", f" File skipped. Could not identify '{os.path.basename(filepath)}' after {max_retries} attempts.")
+                            return  # Do not track or cache invalid entries
+
+            # Existing logic for processing valid results
             if result:
                 logger.info(f"SIMKL API returned result for file search: {result}")
                 self._process_simkl_search_result(result, filepath, cache_key, "simkl_search_file")
@@ -755,14 +834,15 @@ class MediaScrobbler:
         except RequestException as e:
             logger.warning(f"Network error during Simkl file identification for '{filepath}': {e}")
             if self.media_type == 'episode': # media_type here is the initial guessit type
-                 self.backlog_cleaner.add(filepath, os.path.basename(filepath), additional_data={"type": "episode", "original_filepath": filepath, "source": "failed_file_search"})
+                self.backlog_cleaner.add(filepath, os.path.basename(filepath), additional_data={"type": "episode", "original_filepath": filepath, "source": "failed_file_search"})
             self._store_guessit_fallback_data(filepath, guessit_info, cache_key) # Fallback on network error
         except Exception as e:
             logger.error(f"Error during Simkl file identification for '{filepath}': {e}", exc_info=True)
-            self._store_guessit_fallback_data(filepath, guessit_info, cache_key) # Fallback on other errors
-
-    def _handle_offline_identification_fallback(self, filepath, guessit_info, cache_key):
-        """Handles offline identification using guessit."""
+            self._store_guessit_fallback_data(filepath, guessit_info, cache_key) # Fallback on other errors    
+    def _handle_offline_identification_fallback(self, filepath, guessit_info, cache_key, retry_attempt=1):
+        """Handles offline identification using guessit with retry mechanism."""
+        max_retries = 3
+        
         if not guessit:
             logger.warning("Guessit library not available for offline fallback.")
             return
@@ -773,6 +853,25 @@ class MediaScrobbler:
                 info_to_use = guessit.guessit(os.path.basename(filepath))
             
             if isinstance(info_to_use, dict) and info_to_use.get('title'):
+                # Check for invalid guessit detection and retry if needed
+                title = info_to_use.get('title')
+                year = info_to_use.get('year', 0)
+                if title == '?' or year == 0:
+                    if retry_attempt <= max_retries:
+                        logger.warning(f"Invalid offline guessit detection for file '{filepath}' (attempt {retry_attempt}/{max_retries}): title='{title}', year={year}. Retrying...")
+                        # Wait a moment and retry with fresh parsing
+                        time.sleep(1)
+                        try:
+                            new_guessit_info = guessit.guessit(os.path.basename(filepath))
+                            return self._handle_offline_identification_fallback(filepath, new_guessit_info, cache_key, retry_attempt + 1)
+                        except Exception as e:
+                            logger.error(f"Error during offline guessit retry: {e}")
+                            return
+                    else:
+                        logger.error(f"Failed to get valid offline detection after {max_retries} attempts for file '{filepath}'. Skipping.")
+                        self._send_notification("Offline Media Detection Failed", f" File skipped. Could not identify '{os.path.basename(filepath)}' after {max_retries} attempts.", offline_only=True)
+                        return
+                
                 self.media_type = info_to_use.get('type', 'episode') # Guessit 'episode' or 'movie'
                 self.movie_name = info_to_use.get('title') # This becomes the stand-in for official title offline
                 self.season = info_to_use.get('season')
@@ -798,7 +897,19 @@ class MediaScrobbler:
                     display_text += f" S{self.season}E{self.episode}"
                 self._send_notification("Offline Media Detection", display_text, offline_only=True)
             else:
-                logger.warning(f"Guessit couldn't extract valid title from '{filepath}' for offline fallback.")
+                if retry_attempt <= max_retries:
+                    logger.warning(f"Guessit couldn't extract valid title from '{filepath}' for offline fallback (attempt {retry_attempt}/{max_retries}). Retrying...")
+                    # Wait a moment and retry
+                    time.sleep(1)
+                    try:
+                        new_guessit_info = guessit.guessit(os.path.basename(filepath))
+                        return self._handle_offline_identification_fallback(filepath, new_guessit_info, cache_key, retry_attempt + 1)
+                    except Exception as e:
+                        logger.error(f"Error during offline guessit retry: {e}")
+                        return
+                else:
+                    logger.error(f"Guessit couldn't extract valid title from '{filepath}' for offline fallback after {max_retries} attempts. Skipping.")
+                    self._send_notification("Offline Media Detection Failed", f" File skipped. Could not extract title from '{os.path.basename(filepath)}' after {max_retries} attempts.", offline_only=True)
         except Exception as e:
             logger.error(f"Error using guessit for offline fallback: {e}", exc_info=True)
 
@@ -1388,10 +1499,8 @@ class MediaScrobbler:
                 # If fetched, update cache using the centralized cache_media_info method
                 if current_details and cache_key_for_details:
                     logger.info(f"Watch History: Fetched details for ID {simkl_id}. Updating cache via cache_media_info.")
-                    
                     # Poster ID processing
                     raw_poster_url_hist = current_details.get('poster')
-
                     self.cache_media_info(
                         original_title_key=cache_key_for_details,
                         simkl_id=simkl_id,
@@ -1583,9 +1692,14 @@ class MediaScrobbler:
                 try:
                     logger.info(f"[Backlog] Syncing '{title_to_sync}' (ID: {simkl_id_to_sync}, Type: {media_type_to_sync}) to Simkl.")
                     sync_result = add_to_history(payload, self.client_id, self.access_token)
-                    if sync_result:
+                    if sync_result:                        
                         success_count += 1
                         logger.info(f"[Backlog] Successfully synced '{title_to_sync}'. Removing from backlog.")
+                          # Send notification for successful sync of this item (showing only count)
+                        self._send_notification(
+                            "Simkl Sync Successful",
+                            f"Successfully synced {success_count} item(s) to your Simkl account."
+                        )
 
                         # After successful sync, fetch and cache additional details
                         cache_key_for_update = (os.path.basename(original_filepath_from_backlog).lower()
@@ -1693,7 +1807,7 @@ class MediaScrobbler:
                     item_data['_api_details_for_history'] = api_details # Store for watch history
                     return True, item_data, None
                 else:
-                    return False, item_data, f"Failed to fetch details for Simkl ID {resolved_simkl_id}"
+                    return False, item_data, f"Failed to fetch details for Simkl ID {resolved_simkl_id}"            
             except Exception as e:
                 return False, item_data, f"API error fetching details for Simkl ID {resolved_simkl_id}: {e}"
 
@@ -1703,11 +1817,37 @@ class MediaScrobbler:
         
         logger.info(f"[Backlog Resolve] Attempting to identify item: Key='{item_key}', Title='{search_term_title}', File='{original_filepath}', TypeHint='{media_type_guess}'")
         
+        def _has_episode_pattern(title):
+            """Check if title contains TV episode patterns like S01E02, 1x02, etc."""
+            if not title:
+                return False
+            episode_patterns = [
+                r'[sS]\d{1,3}[eE]\d{1,4}',  # S01E02, s1e2
+                r'\d{1,3}x\d{1,4}',         # 1x02, 10x5
+                r'[sS]\d{1,3}\.?[eE]?\d{1,4}', # S01.E02, S01.02, S0102
+                r'episode\s*\d{1,4}',       # episode 1, episode 12
+                r'\s\d{1,2}\s',             # space-padded episode numbers (anime)
+            ]
+            for pattern in episode_patterns:
+                if re.search(pattern, title, re.IGNORECASE):
+                    return True
+            return False
+        
         api_search_result = None
         try:
             if original_filepath and media_type_guess in ['episode', 'show', 'anime']:
                 api_search_result = search_file(original_filepath, self.client_id)
-            elif media_type_guess == 'movie' or not original_filepath : # Movie search or title search if no file
+            elif media_type_guess in ['episode', 'show', 'anime'] or _has_episode_pattern(search_term_title):
+                # Use episode-appropriate search even without filepath if title suggests it's an episode
+                logger.info(f"[Backlog Resolve] Title '{search_term_title}' appears to be TV/anime episode, using file search method")
+                # For episodes without filepath, we can try using the title as if it were a filename
+                # This works because search_file can handle titles that look like episode filenames
+                api_search_result = search_file(search_term_title, self.client_id)
+            elif media_type_guess == 'movie':
+                api_search_result = search_movie(search_term_title, self.client_id, self.access_token)
+            elif not original_filepath:
+                # Fallback: no filepath and no clear type hint - try movie search
+                logger.info(f"[Backlog Resolve] No filepath and ambiguous type, defaulting to movie search for '{search_term_title}'")
                 api_search_result = search_movie(search_term_title, self.client_id, self.access_token)
             else: # Should not happen if logic is sound
                  return False, item_data, "Could not determine search method for backlog item."
@@ -1790,13 +1930,17 @@ class MediaScrobbler:
                             
                             if isinstance(result, dict):
                                 processed = result.get('processed', 0)
-                                attempted = result.get('attempted', 0)
+                                attempted = result.get('attempted', 0)                                
                                 if processed > 0:
                                     logger.info(f"[Offline Sync Thread] Synced {processed} of {attempted} items from backlog.")
+                                    # Show notification for automatic backlog sync completion (showing only count)
+                                    self._send_notification(
+                                        "Simkl Backlog Sync Complete",
+                                        f"Successfully synced {processed} item(s) from your backlog.",
+                                        online_only=True
+                                    )
                                 elif attempted > 0 : # Attempted but none succeeded
                                     logger.info(f"[Offline Sync Thread] Attempted {attempted} backlog items, none synced this cycle.")
-                                # If attempted is 0, it means process_backlog found no items ready (e.g. all in cooldown)
-                            # else: result might be legacy, handle if necessary or phase out.
                         else:
                             logger.debug("[Offline Sync Thread] Internet detected, but no backlog items to process.")
                     else:
@@ -1943,7 +2087,7 @@ class MediaScrobbler:
             
             # Ensure essential fields are correctly set from the latest information
             if display_name: merged_data["movie_name"] = display_name
-            if media_type: merged_data["type"] = media_type # API type is canonical
+            if media_type: merged_data["type"] = media_type
             merged_data["simkl_id"] = simkl_id # Ensure it's the correct int type
 
             self.media_cache.update(existing_key_for_id, merged_data)
@@ -1986,13 +2130,15 @@ class MediaScrobbler:
                (self.total_duration_seconds is None or abs(self.total_duration_seconds - current_total_duration) > 2): # Allow small variance
                 self.total_duration_seconds = current_total_duration
                 self.estimated_duration = current_total_duration # Update estimate
-                logger.info(f"Instance duration updated to {current_total_duration}s for '{self.movie_name}'.")
-
-            if is_new_id_for_instance or (display_name and self.movie_name != display_name): # Notify if ID or official title changes
+                logger.info(f"Instance duration updated to {current_total_duration}s for '{self.movie_name}'.")            
+            
+            # Notify if ID or official title changes
+            if is_new_id_for_instance or (display_name and self.movie_name != display_name):
                 notify_text = f"Playing: '{self.movie_name}'"
                 if self.media_type in ['show', 'anime']:
-                    if self.season is not None and self.episode is not None: notify_text += f" S{self.season}E{self.episode}"
-                    elif self.episode is not None : notify_text += f" E{self.episode}" # Anime
+                    # Use the parameters passed to this function, not the instance variables (which may be stale)
+                    if season is not None and episode is not None: notify_text += f" S{season}E{episode}"
+                    elif episode is not None : notify_text += f" E{episode}" # Anime
                 elif year is not None: notify_text += f" ({year})" # Use year from params if available
                 elif new_data_to_cache.get('year') is not None: notify_text += f" ({new_data_to_cache.get('year')})"
 
@@ -2020,14 +2166,15 @@ class MediaScrobbler:
             media_desc = f"{self.media_type or 'media'}"
             if self.media_type in ['show', 'anime']:
                 if self.season is not None and self.episode is not None: media_desc += f" S{self.season}E{self.episode}"
-                elif self.episode is not None: media_desc += f" E{self.episode}" # Anime case
+                elif self.episode is not None: media_desc += f" E{self.episode}"
             logger.info(f"Completion threshold ({threshold_to_use}%) met for {media_desc}: '{self.movie_name or self.currently_tracking}' at {percentage:.2f}%.")
             self._logged_completion_for_this_item = True # Prevent re-logging for this item
         
-        return is_now_complete
-
-    def _store_guessit_fallback_data(self, filepath, guessit_info, cache_key_override=None):
-        """Stores fallback data from guessit when Simkl API identification fails or is unavailable."""
+        return is_now_complete    
+    def _store_guessit_fallback_data(self, filepath, guessit_info, cache_key_override=None, retry_attempt=1):
+        """Stores fallback data from guessit when Simkl API identification fails or is unavailable with retry mechanism."""
+        max_retries = 3
+        
         if not guessit:
             logger.debug("Guessit not available, cannot store fallback data.")
             return
@@ -2037,9 +2184,24 @@ class MediaScrobbler:
 
         try:
             raw_title_from_guessit = guessit_info.get('title')
-            if not raw_title_from_guessit:
-                logger.warning(f"Cannot store guessit fallback: Missing title in {guessit_info}")
-                return
+            year_from_guessit = guessit_info.get('year', 0)
+            
+            # Check for invalid detection and retry if needed
+            if not raw_title_from_guessit or raw_title_from_guessit == '?' or year_from_guessit == 0:
+                if retry_attempt <= max_retries:
+                    logger.warning(f"Invalid guessit fallback data for file '{filepath}' (attempt {retry_attempt}/{max_retries}): title='{raw_title_from_guessit}', year={year_from_guessit}. Retrying...")
+                    # Wait a moment and retry with fresh parsing
+                    time.sleep(1)
+                    try:
+                        new_guessit_info = guessit.guessit(os.path.basename(filepath))
+                        return self._store_guessit_fallback_data(filepath, new_guessit_info, cache_key_override, retry_attempt + 1)
+                    except Exception as e:
+                        logger.error(f"Error during guessit fallback retry: {e}")
+                        return
+                else:
+                    logger.error(f"Failed to get valid guessit fallback data after {max_retries} attempts for file '{filepath}'. Skipping.")
+                    self._send_notification("Guessit Fallback Failed", f" File skipped. Could not extract fallback data for '{os.path.basename(filepath)}' after {max_retries} attempts.")
+                    return
 
             media_type_from_guessit = guessit_info.get('type', 'episode') # 'episode' or 'movie'
             season_from_guessit = guessit_info.get('season')
@@ -2060,7 +2222,7 @@ class MediaScrobbler:
                 "source": "guessit_fallback_stored",
                 "original_filepath": filepath # Crucial for later re-identification attempts
             }
-            
+
             logger.info(f"Storing guessit fallback for '{raw_title_from_guessit}' (Key: {cache_key_to_use}): "
                         f"Type='{media_type_from_guessit}', S={season_from_guessit}, E={episode_from_guessit}")
             self.media_cache.set(cache_key_to_use, fallback_data)
