@@ -1691,15 +1691,10 @@ class MediaScrobbler:
                 sync_api_error = None
                 try:
                     logger.info(f"[Backlog] Syncing '{title_to_sync}' (ID: {simkl_id_to_sync}, Type: {media_type_to_sync}) to Simkl.")
-                    sync_result = add_to_history(payload, self.client_id, self.access_token)
+                    sync_result = add_to_history(payload, self.client_id, self.access_token)                    
                     if sync_result:                        
                         success_count += 1
                         logger.info(f"[Backlog] Successfully synced '{title_to_sync}'. Removing from backlog.")
-                          # Send notification for successful sync of this item (showing only count)
-                        self._send_notification(
-                            "Simkl Sync Successful",
-                            f"Successfully synced {success_count} item(s) to your Simkl account."
-                        )
 
                         # After successful sync, fetch and cache additional details
                         cache_key_for_update = (os.path.basename(original_filepath_from_backlog).lower()
