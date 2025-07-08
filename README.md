@@ -97,7 +97,7 @@ These tools can help organize and rename media files automatically, which can im
 ---
 
 <div align="center">
-  <p>Made with ❤️ by <a href="https://github.com/kavinthangavel">kavinthangavel</a></p>
+  <p>Made with ❤️ by <a href="https://github.com/kavinthangavel">kavin</a></p>
   <p>
     <a href="https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/stargazers">⭐ Star us on GitHub</a> •
     <a href="https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/issues">🐞 Report Bug</a> •
