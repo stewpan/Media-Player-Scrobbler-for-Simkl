@@ -1650,10 +1650,12 @@ class MediaScrobbler:
         for item_key, item_data in pending_items_dict.items():
             attempt_count = item_data.get("attempt_count", 0)
             if attempt_count >= self.MAX_BACKLOG_ATTEMPTS:
-                items_to_remove.append((item_key, item_data.get("title", item_key)))
+                items_to_remove.append((item_key, item_data))
         
-        for item_key, title in items_to_remove:
-            logger.info(f"[Backlog] Removing permanently failed item: '{title}' (Key: {item_key}, Attempts: {pending_items_dict[item_key].get('attempt_count', 0)})")
+        for item_key, item_data in items_to_remove:
+            title = item_data.get("title", item_key)
+            attempt_count = item_data.get("attempt_count", 0)
+            logger.info(f"[Backlog] Removing permanently failed item: '{title}' (Key: {item_key}, Attempts: {attempt_count})")
             self.backlog_cleaner.remove(item_key)
             # Clean up any notification throttle data for this item
             self._backlog_notification_throttle.pop(item_key, None)
