@@ -777,6 +777,9 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
                     if hasattr(scrobbler, 'media_cache'):
                         scrobbler.media_cache.cache.clear()
                         scrobbler.media_cache._save_cache()
+                    # Clear backlog processing state and notification throttles
+                    if hasattr(scrobbler, 'clear_backlog_processing_state'):
+                        scrobbler.clear_backlog_processing_state()
                 for attr in ('currently_tracking', 'movie_name', 'show_name', 'media_title', 'media_type', 'season', 'episode'):
                     if hasattr(self.scrobbler, attr):
                         setattr(self.scrobbler, attr, None)
@@ -921,6 +924,9 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
                     if hasattr(scrobbler, 'media_cache'):
                         scrobbler.media_cache.cache.clear()
                         scrobbler.media_cache._save_cache()
+                    # Clear backlog processing state and notification throttles
+                    if hasattr(scrobbler, 'clear_backlog_processing_state'):
+                        scrobbler.clear_backlog_processing_state()
                 for attr in ('currently_tracking', 'movie_name', 'show_name', 'media_title', 'media_type', 'season', 'episode'):
                     if hasattr(self.scrobbler, attr):
                         setattr(self.scrobbler, attr, None)
