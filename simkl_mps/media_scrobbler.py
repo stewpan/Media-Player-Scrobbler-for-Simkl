@@ -161,6 +161,31 @@ class MediaScrobbler:
             except Exception as e:
                 logger.error(f"Failed to send notification '{title}': {e}", exc_info=True)
 
+    def _send_throttled_notification(self, notification_key, title, message, throttle_minutes=30, _throttle_dict=None, **kwargs):
+        """
+        Sends a notification with throttling to prevent spam.
+        Only sends a notification if enough time has passed since the last notification for this key.
+        
+        Args:
+            notification_key (str): The unique key for this type of notification
+            title (str): Notification title
+            message (str): Notification message
+            throttle_minutes (int): Minutes to wait between notifications for the same key
+            _throttle_dict (dict, optional): The throttle dictionary to use. Defaults to general notifications.
+            **kwargs: Additional arguments to pass to _send_notification
+        """
+        throttle_dict = _throttle_dict if _throttle_dict is not None else self._general_notification_throttle
+        current_time = time.time()
+        last_notification_time = throttle_dict.get(notification_key, 0)
+        throttle_seconds = throttle_minutes * 60
+        
+        if current_time - last_notification_time >= throttle_seconds:
+            self._send_notification(title, message, **kwargs)
+            throttle_dict[notification_key] = current_time
+            logger.debug(f"Sent throttled notification for key '{notification_key}'")
+        else:
+            logger.debug(f"Notification throttled for key '{notification_key}' (last sent {(current_time - last_notification_time)/60:.1f} minutes ago)")
+
     def _send_throttled_backlog_notification(self, item_key, title, message, throttle_minutes=30):
         """
         Sends a notification for backlog sync errors with throttling to prevent spam.
@@ -172,39 +197,13 @@ class MediaScrobbler:
             message (str): Notification message
             throttle_minutes (int): Minutes to wait between notifications for the same item
         """
-        current_time = time.time()
-        last_notification_time = self._backlog_notification_throttle.get(item_key, 0)
-        throttle_seconds = throttle_minutes * 60
-        
-        if current_time - last_notification_time >= throttle_seconds:
-            self._send_notification(title, message)
-            self._backlog_notification_throttle[item_key] = current_time
-            logger.debug(f"Sent throttled notification for item '{item_key}'")
-        else:
-            logger.debug(f"Notification throttled for item '{item_key}' (last sent {(current_time - last_notification_time)/60:.1f} minutes ago)")
-
-    def _send_throttled_notification(self, notification_key, title, message, throttle_minutes=30, **kwargs):
-        """
-        Sends a notification with throttling to prevent spam.
-        Only sends a notification if enough time has passed since the last notification for this key.
-        
-        Args:
-            notification_key (str): The unique key for this type of notification
-            title (str): Notification title
-            message (str): Notification message
-            throttle_minutes (int): Minutes to wait between notifications for the same key
-            **kwargs: Additional arguments to pass to _send_notification
-        """
-        current_time = time.time()
-        last_notification_time = self._general_notification_throttle.get(notification_key, 0)
-        throttle_seconds = throttle_minutes * 60
-        
-        if current_time - last_notification_time >= throttle_seconds:
-            self._send_notification(title, message, **kwargs)
-            self._general_notification_throttle[notification_key] = current_time
-            logger.debug(f"Sent throttled notification for key '{notification_key}'")
-        else:
-            logger.debug(f"Notification throttled for key '{notification_key}' (last sent {(current_time - last_notification_time)/60:.1f} minutes ago)")
+        self._send_throttled_notification(
+            item_key,
+            title,
+            message,
+            throttle_minutes=throttle_minutes,
+            _throttle_dict=self._backlog_notification_throttle
+        )
 
     def _log_playback_event(self, event_type, extra_data=None):
         """Logs a structured playback event to the playback log file."""
@@ -1420,7 +1419,7 @@ class MediaScrobbler:
         if source_for_regex:
             patterns = [
                 r'[sS](\d{1,3})[eE](\d{1,4})', r'(\d{1,3})x(\d{1,4})',
-                r'[sS](\d{1,3}).?[eE]?(\d{1,4})', # S01.E01, S01E01, S01.01
+                r'[sS](\d{1,3}).?[eE]?(\d{1,4})', # S01.E01, S01E01, S01e01
                 r'episode.*?(\d{1,4})', # "episode 01", "Episode.1" (captures episode only)
                 r' (\d{1,4}) ', # Space-padded number, might be an episode for anime
             ]
@@ -1871,11 +1870,7 @@ class MediaScrobbler:
                 self._send_notification("Simkl Backlog Sync", f"{success_count} items synced")
             else:
                 # Some items failed
-                self._send_notification("Simkl Backlog Sync", f"{success_count} items synced, {failed_count} items failed. Will retry.")
-        # Fallback log, no specific notification for this general case unless it's a new state.
-        elif attempted_this_cycle > 0 : # Generic completion if other states not met
-             logger.info(f"[Backlog] Cycle complete. Attempted: {attempted_this_cycle}, Synced: {success_count}.")
-
+                self._send_notification("Simkl Backlog Sync", f"{success_count} items synced, {failed_count} items failed")
 
         return {'processed': success_count, 'attempted': attempted_this_cycle, 'failed': failure_this_cycle}
 
@@ -1938,7 +1933,7 @@ class MediaScrobbler:
             episode_patterns = [
                 r'[sS]\d{1,3}[eE]\d{1,4}',  # S01E02, s1e2
                 r'\d{1,3}x\d{1,4}',         # 1x02, 10x5
-                r'[sS]\d{1,3}\.?[eE]?\d{1,4}', # S01.E02, S01E02, S01.01
+                r'[sS]\d{1,3}\.?[eE]?\d{1,4}', # S01.E02, S01E02, S01e02
                 r'episode\s*\d{1,4}',       # episode 1, episode 12
                 r'\s\d{1,2}\s',             # space-padded episode numbers (anime)
             ]
