@@ -786,12 +786,12 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Try Scrobble Again", self.try_scrobble_again),
             pystray.MenuItem("Process Backlog Now", self.process_backlog),
-            pystray.MenuItem("Clear Backlog", self.clear_backlog),
             pystray.MenuItem("Watch Threshold (%)", threshold_submenu),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Open Logs", self.open_logs),
             pystray.MenuItem("Open Config Directory", self.open_config_dir),
             pystray.Menu.SEPARATOR,
+            pystray.MenuItem("Clear Backlog", self.clear_backlog),
             pystray.MenuItem("Clear Cache", self.clear_cache),
             pystray.MenuItem("Clear All Data and Logs", self.clear_all_data),
         )))
