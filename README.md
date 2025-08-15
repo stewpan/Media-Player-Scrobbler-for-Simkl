@@ -10,7 +10,7 @@
 
 ## ✨ Features
 
-- 🎮 **Supports Every Famous Media Player** (VLC, MPV, MPC-HC and more)
+- 🎮 **Supports Every Famous Media Player** (VLC, PotPlayer, MPV, MPC-HC and more)
 - 🌐 **Cross-Platform** – Windows, macOS, Linux
 - 🖥️ **Native Executable** – System tray, auto-update, and background service (Windows)
 - 📈 **Accurate Position Tracking** – For supported players (configure via [Media Players Guide](docs/media-players.md))
