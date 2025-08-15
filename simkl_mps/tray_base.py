@@ -571,6 +571,73 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
         threading.Thread(target=_process, daemon=True).start()
         return 0
 
+    def clear_backlog(self, _=None):
+        """Clear the backlog and restart application state to prevent repeated sync notifications"""
+        logger.info("Clear backlog requested from tray menu...")
+        
+        # Show confirmation dialog
+        if not self._show_confirmation_dialog(
+            "Clear Backlog",
+            "Are you sure you want to clear the backlog?\n\n"
+            "This will:\n"
+            "• Clear all pending backlog items\n"
+            "• Reset tracking state\n"
+            "• Stop repeated sync notifications\n\n"
+            "This action cannot be undone."
+        ):
+            logger.info("Clear backlog cancelled by user")
+            return 0
+        
+        logger.info("Clearing backlog from tray menu...")
+        try:
+            # Clear the backlog
+            from simkl_mps.backlog_cleaner import BacklogCleaner
+            backlog_cleaner = BacklogCleaner(APP_DATA_DIR)
+            backlog_cleaner.clear()
+            
+            # Reset scrobbler state if running
+            if self.scrobbler:
+                if hasattr(self.scrobbler, 'monitor') and hasattr(self.scrobbler.monitor, 'scrobbler'):
+                    scrobbler = self.scrobbler.monitor.scrobbler
+                    
+                    # Use the new reset method for comprehensive state clearing
+                    if hasattr(scrobbler, 'reset_tracking_state'):
+                        scrobbler.reset_tracking_state()
+                        logger.info("Used comprehensive tracking state reset")
+                    else:
+                        # Fallback to manual reset if method not available
+                        if hasattr(scrobbler, 'clear_backlog_processing_state'):
+                            scrobbler.clear_backlog_processing_state()
+                        
+                        # Reset tracking state to prevent stuck notifications
+                        for attr in ('currently_tracking', 'movie_name', 'show_name', 'media_title', 
+                                   'media_type', 'season', 'episode', 'simkl_id', 'completed',
+                                   'current_filepath', 'state'):
+                            if hasattr(scrobbler, attr):
+                                setattr(scrobbler, attr, None)
+                        
+                        # Reset timing and progress tracking
+                        scrobbler.start_time = None
+                        scrobbler.watch_time = 0
+                        scrobbler.current_position_seconds = 0
+                        scrobbler.total_duration_seconds = 0
+                        scrobbler.last_update_time = None
+                        
+                        # Clear any offline sync thread notification throttles
+                        if hasattr(scrobbler, '_last_offline_sync_notification'):
+                            scrobbler._last_offline_sync_notification = 0
+                        
+                        logger.info("Used manual tracking state reset")
+            
+            self.show_notification("simkl-mps", "Backlog cleared and tracking state reset.")
+            self.update_icon()
+            logger.info("Backlog cleared successfully")
+            
+        except Exception as e:
+            logger.error(f"Error clearing backlog: {e}")
+            self.show_notification("simkl-mps Error", f"Failed to clear backlog: {e}")
+        return 0
+
     # --- Watch Threshold Logic ---
 
     def _apply_threshold_change(self, new_threshold: int | None):
@@ -719,6 +786,7 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Try Scrobble Again", self.try_scrobble_again),
             pystray.MenuItem("Process Backlog Now", self.process_backlog),
+            pystray.MenuItem("Clear Backlog", self.clear_backlog),
             pystray.MenuItem("Watch Threshold (%)", threshold_submenu),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Open Logs", self.open_logs),
