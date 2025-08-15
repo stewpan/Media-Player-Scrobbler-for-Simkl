@@ -98,9 +98,9 @@ If you selected auto-start during installation, the application will launch auto
 
 ### Windows-Specific File Locations
 
-- **Configuration file**: `%APPDATA%\kavinthangavel\simkl-mps\.simkl_mps.env`
-- **Log files**: `%APPDATA%\kavinthangavel\simkl-mps\simkl_mps.log`
-- **Backlog database**: `%APPDATA%\kavinthangavel\simkl-mps\backlog.db`
+- **Configuration file**: `%APPDATA%\kavin\simkl-mps\.simkl_mps.env`
+- **Log files**: `%APPDATA%\kavin\simkl-mps\simkl_mps.log`
+- **Backlog database**: `%APPDATA%\kavin\simkl-mps\backlog.db`
 
 ## 🔄 Windows Update System
 

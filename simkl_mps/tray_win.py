@@ -131,7 +131,7 @@ class TrayAppWin(TrayAppBase):
                 if version == "Unknown" and sys.platform == 'win32':
                     try:
                         import winreg
-                        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\kavinthangavel\Media Player Scrobbler for SIMKL")
+                        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\kavin\Media Player Scrobbler for SIMKL")
                         version = winreg.QueryValueEx(key, "Version")[0]
                         winreg.CloseKey(key)
                     except:
@@ -142,7 +142,7 @@ class TrayAppWin(TrayAppBase):
             try:
                 if sys.platform == 'win32':
                     import winreg
-                    key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\kavinthangavel\Media Player Scrobbler for SIMKL")
+                    key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\kavin\Media Player Scrobbler for SIMKL")
                     license_name = winreg.QueryValueEx(key, "License")[0]
                     winreg.CloseKey(key)
             except:
@@ -151,7 +151,7 @@ class TrayAppWin(TrayAppBase):
             # Build the about text with the version and license
             about_text = f"""Media Player Scrobbler for SIMKL
 Version: {version}
-Author: kavinthangavel
+Author: kavin
 License: {license_name}
 
 Automatically track and scrobble your media to SIMKL."""
@@ -251,7 +251,7 @@ Tips:
                 if sys.platform == 'win32':
                     try:
                         import winreg
-                        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\kavinthangavel\Media Player Scrobbler for SIMKL")
+                        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\kavin\Media Player Scrobbler for SIMKL")
                         current_version = winreg.QueryValueEx(key, "Version")[0]
                         winreg.CloseKey(key)
                     except:
@@ -372,7 +372,7 @@ Tips:
                 from winotify import Notification
                 # icon_path = self._get_icon_path(self.status)  # Use the same icon logic as tray
                 toast = Notification(
-                    app_id="kavinthangavel.simkl-mps",  # Must match AppUserModelID in installer
+                    app_id="kavin.simkl-mps",  # Must match AppUserModelID in installer
                     title=title,
                     msg=message,
                     # icon=icon_path if icon_path else None
@@ -610,7 +610,7 @@ Tips:
                 import winreg
                 try:
                     # Try to open the registry key
-                    registry_path = r"Software\kavinthangavel\Media Player Scrobbler for SIMKL"
+                    registry_path = r"Software\kavin\Media Player Scrobbler for SIMKL"
                     key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, registry_path, 0, 
                                         winreg.KEY_READ | winreg.KEY_WRITE)
                     

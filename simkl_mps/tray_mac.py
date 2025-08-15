@@ -173,7 +173,7 @@ class TrayAppMac(TrayAppBase):
             # Build the about text
             about_text = f"""Media Player Scrobbler for SIMKL
 Version: {version}
-Author: kavinthangavel
+Author: kavin
 License: GNU GPL v3
 
 Automatically track and scrobble your media to SIMKL."""
@@ -401,7 +401,7 @@ Automatically track and scrobble your media to SIMKL."""
             os.makedirs(launch_agents_dir, exist_ok=True)
             
             # Path to the LaunchAgent plist
-            plist_path = launch_agents_dir / "com.kavinthangavel.simkl-mps.updater.plist"
+            plist_path = launch_agents_dir / "com.kavin.simkl-mps.updater.plist"
             
             # Only create the LaunchAgent if it doesn't exist
             if not plist_path.exists() and self.is_first_run:
@@ -415,7 +415,7 @@ Automatically track and scrobble your media to SIMKL."""
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.kavinthangavel.simkl-mps.updater</string>
+    <string>com.kavin.simkl-mps.updater</string>
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>

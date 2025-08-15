@@ -8,7 +8,7 @@ param (
 )
 
 $AppName = "Media Player Scrobbler for SIMKL"
-$Publisher = "kavinthangavel"
+$Publisher = "kavin"
 $ApiURL = "https://api.github.com/repos/ByteTrix/Media-Player-Scrobbler-for-Simkl/releases/latest"
 $UserAgent = "MPSS-Updater/2.1"
 $LogFile = Join-Path $env:LOCALAPPDATA "SIMKL-MPS\updater.log"

@@ -483,7 +483,7 @@ class TrayAppLinux(TrayAppBase):
             # Build the about text
             about_text = f"""Media Player Scrobbler for SIMKL
 Version: {version}
-Author: kavinthangavel
+Author: kavin
 License: GNU GPL v3
 
 Automatically track and scrobble your media to SIMKL."""
