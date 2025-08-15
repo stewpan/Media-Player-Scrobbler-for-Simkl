@@ -28,6 +28,7 @@ Follow the platform-specific instructions below to set up your preferred media p
 | MPV                   | ✅      | ✅    | ✅    | ✅              | Moderate               |
 | MPC-HC/BE             | ✅      | ❌    | ❌    | ✅              | Easy                   |
 | MPC-QT                | ✅      | ❌    | ✅    | ✅              | Easy                   |
+| PotPlayer             | ✅      | ❌    | ❌    | ✅              | None (Auto-detected)   |
 | MPV Wrappers*         | ✅      | ✅    | ✅    | ✅              | Moderate               |
 
 *MPV Wrappers: Celluloid, MPV.net, SMPlayer, IINA, Haruna, etc.
@@ -98,6 +99,27 @@ Follow the platform-specific instructions below to set up your preferred media p
 **Verification:**
 - Play a movie in your MPV wrapper player
 - The scrobbler should connect and show accurate position data
+
+### PotPlayer (Recommended - Zero Configuration)
+
+**PotPlayer** is a Windows media player that provides excellent integration with zero configuration required. The scrobbler automatically detects and connects to PotPlayer using Windows messaging API.
+
+**How it Works:**
+- Uses Windows messaging API for direct communication with PotPlayer
+- Automatically caches the current filename when detected
+- Filters out UI states like "Chapter 16", "Show main menu", etc.
+- Cleans filename by removing "(With subtitles)" and similar appendages
+- Provides accurate position/duration data in real-time
+
+**Supported Versions:**
+- PotPlayer 32-bit and 64-bit (PotPlayerMini64.exe recommended)
+- All recent versions with standard Windows messaging support
+
+**Verification:**
+- Play a movie in PotPlayer
+- The scrobbler automatically connects (no web interface needed)
+- You should see accurate position tracking and movie detection
+- Check logs for "Successfully connected to PotPlayer via Windows messaging"
 
 ### MPC-HC/BE (Media Player Classic)
 
@@ -350,12 +372,17 @@ graph TD
 
 ## 📊 Player Comparison
 
-| Feature | VLC | MPV | MPC-HC/BE |
-|---------|-----|-----|-----------|
-| Ease of configuration | ★★★★☆ | ★★☆☆☆ | ★★★★☆ |
-| Cross-platform | ✅ | ✅ | ❌ |
-| Position accuracy | Very High | High | Very High |
-| Resource usage | Moderate | Low | Low |
-| Recommended for | Beginners | Power users | Windows users |
+| Feature | VLC | MPV | MPC-HC/BE | PotPlayer |
+|---------|-----|-----|-----------|-----------|
+| Ease of configuration | ★★★★☆ | ★★☆☆☆ | ★★★★☆ | ★★★★★ |
+| Cross-platform | ✅ | ✅ | ❌ | ❌ |
+| Position accuracy | Very High | High | Very High | Very High |
+| Resource usage | Moderate | Low | Low | Low |
+| Configuration required | Yes | Yes | Yes | None |
+| Recommended for | Beginners | Power users | Windows users | Windows users |
 
-The best player for tracking depends on your platform and preferences, but properly configured **VLC** offers the most universal compatibility and reliable tracking.
+**Recommendations by use case:**
+- **Zero configuration needed**: **PotPlayer** (Windows only) - works immediately out of the box
+- **Cross-platform compatibility**: **VLC** - most universal option with reliable tracking
+- **Advanced features & customization**: **MPV** - for power users who want maximum control
+- **Windows-specific with web interface**: **MPC-HC/BE** - traditional Windows media player experience

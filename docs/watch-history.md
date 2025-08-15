@@ -64,9 +64,9 @@ The local watch history system is managed by the `WatchHistoryManager` (see `sim
 
 ### File Locations
 - **History Data:**
-  - `watch_history.json` is stored in your data directory (e.g. `~/.kavinthangavel/simkl-mps/` or click open config dir in tray app .
+  - `watch_history.json` is stored in your data directory (e.g. `~/.kavin/simkl-mps/` or click open config dir in tray app .
 - **Viewer:**
-  - The HTML/JS viewer is auto-copied to `~/kavinthangavel/simkl-mps/watch-history-viewer/`.
+  - The HTML/JS viewer is auto-copied to `~/kavin/simkl-mps/watch-history-viewer/`.
   - The viewer loads `data.js` (auto-generated from your history).
 
 ### How It Works

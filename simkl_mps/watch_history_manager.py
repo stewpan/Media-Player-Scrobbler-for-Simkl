@@ -176,7 +176,9 @@ class WatchHistoryManager:
     def _ensure_viewer_exists(self):
         """Ensure the watch history viewer files exist in the user's app data directory, always copying from the bundled source."""
         import shutil
-        user_dir = pathlib.Path.home() / "kavinthangavel" / "simkl-mps" / "watch-history-viewer"
+        from .migration import get_app_data_dir
+        # Use migration-aware path
+        user_dir = get_app_data_dir() / "watch-history-viewer"
         source_dir = self._get_source_dir()
         # Always copy all files from source_dir to user_dir, overwriting if needed
         if not user_dir.exists():

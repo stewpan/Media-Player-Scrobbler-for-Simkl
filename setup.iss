@@ -1,12 +1,12 @@
 #define MyAppName "Media Player Scrobbler for SIMKL"
 #define MyAppShortName "MPS for SIMKL"
-#define MyAppPublisher "kavinthangavel"
+#define MyAppPublisher "kavin"
 #define MyAppURL "https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl"
 #define MyAppExeName "MPSS"
 #define MyAppTrayName "MPS for Simkl"
-#define MyAppVersion "2.1.4"
+#define MyAppVersion "2.2.0"
 #define MyAppDescription "Automatically track and scrobble media you watch to SIMKL"
-#define MyAppCopyright "Copyright (C) 2025 kavinthangavel"
+#define MyAppCopyright "Copyright (C) 2025 kavin"
 #define MyAppUpdateURL "https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/releases"
 #define MyAppReadmeURL "https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl#readme"
 #define MyAppIssuesURL "https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/issues"
@@ -63,7 +63,7 @@ FinishedHeadingLabel=Completing the [name] Setup Wizard
 FinishedLabel=Setup has finished installing [name] on your computer. The application may be launched by selecting the installed shortcuts.
 AboutSetupMenuItem=About [name]...
 AboutSetupTitle=About [name]
-AboutSetupMessage=[name] version [ver]%n[name] Media Player Scrobbler for SIMKL%n%nLicense: {#MyLicense}%n%nCopyright © kavinthangavel%n{#MyAppURL}
+AboutSetupMessage=[name] version [ver]%n[name] Media Player Scrobbler for SIMKL%n%nLicense: {#MyLicense}%n%nCopyright © kavin%n{#MyAppURL}
 
 [CustomMessages]
 LaunchAppDesc=Start MPS for SIMKL after installation
@@ -93,12 +93,12 @@ Source: "LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 ; Start Menu entries - simplified to just have "Start Scrobbler"
-Name: "{group}\{#MyAppShortName}"; Filename: "{app}\{#MyAppExeName}"; Parameters: "start"; Comment: "Start SIMKL scrobbler in the background"; AppUserModelID: "kavinthangavel.simkl-mps"
+Name: "{group}\{#MyAppShortName}"; Filename: "{app}\{#MyAppExeName}"; Parameters: "start"; Comment: "Start SIMKL scrobbler in the background"; AppUserModelID: "kavin.simkl-mps"
 Name: "{group}\{cm:UninstallProgram,{#MyAppShortName}}"; Filename: "{uninstallexe}"
 
 ; Desktop icon - simplified to just one "Start Scrobbler" icon
-Name: "{commondesktop}\{#MyAppShortName}"; Filename: "{app}\{#MyAppExeName}"; Parameters: "start"; Tasks: desktopicon; Check: IsAdminInstallMode; Comment: "Start SIMKL scrobbler in the background"; AppUserModelID: "kavinthangavel.simkl-mps"
-Name: "{userdesktop}\{#MyAppShortName}"; Filename: "{app}\{#MyAppExeName}"; Parameters: "start"; Tasks: desktopicon; Check: not IsAdminInstallMode; Comment: "Start SIMKL scrobbler in the background"; AppUserModelID: "kavinthangavel.simkl-mps"
+Name: "{commondesktop}\{#MyAppShortName}"; Filename: "{app}\{#MyAppExeName}"; Parameters: "start"; Tasks: desktopicon; Check: IsAdminInstallMode; Comment: "Start SIMKL scrobbler in the background"; AppUserModelID: "kavin.simkl-mps"
+Name: "{userdesktop}\{#MyAppShortName}"; Filename: "{app}\{#MyAppExeName}"; Parameters: "start"; Tasks: desktopicon; Check: not IsAdminInstallMode; Comment: "Start SIMKL scrobbler in the background"; AppUserModelID: "kavin.simkl-mps"
 
 ; Startup entry - renamed to "MPS for Simkl.exe" with specific icon
 Name: "{userstartup}\{#MyAppShortName}"; Filename: "{app}\{#MyAppTrayName}"; Parameters: "start"; IconFilename: "{app}\{#MyAppTrayName}"; Tasks: startupicon; Check: not IsAdminInstallMode; Comment: "Start SIMKL scrobbler in the background"
@@ -139,7 +139,7 @@ Type: filesandordirs; Name: "{app}\*.pyd"; Check: not IsFirstInstall
 const
   MyAppIdGuid = '{3FF84A4E-B9C2-4F49-A8DE-5F7EA15F5D88}'; // Define the AppId GUID as a script constant
   CONFIG_FOLDER = 'simkl-mps';
-  TASK_NAME = 'kavinthangavel.MediaPlayerScrobblerForSIMKL.UpdateCheck';
+  TASK_NAME = 'kavin.MediaPlayerScrobblerForSIMKL.UpdateCheck';
 
 // Check if the app is currently running
 function IsAppRunning: Boolean;
@@ -311,8 +311,8 @@ begin
       // All possible config directories to check and remove - Windows specific
       SetArrayLength(ConfigDirs, 6);
       
-      // Primary location: C:\Users\username\kavinthangavel\simkl-mps
-      ConfigDirs[0] := UserProfileDir + '\kavinthangavel\' + CONFIG_FOLDER;
+      // Primary location: C:\Users\username\kavin\simkl-mps
+      ConfigDirs[0] := UserProfileDir + '\kavin\' + CONFIG_FOLDER;
       
       // Other possible locations - using environment variables instead of constants
       ConfigDirs[1] := LocalAppDataDir + '\' + CONFIG_FOLDER;

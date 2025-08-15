@@ -8,8 +8,8 @@ log = logging.getLogger(__name__)
 
 APP_NAME = "simkl-mps" # Define app name for config directory
 
-# Default user subdirectory - this can be customized
-DEFAULT_USER_SUBDIR = "kavinthangavel"  
+# Default user subdirectory
+DEFAULT_USER_SUBDIR = "kavin"  # Updated from kavinthangavel
 USER_SUBDIR = DEFAULT_USER_SUBDIR  # Use default initially
 
 # Initialize settings directory paths

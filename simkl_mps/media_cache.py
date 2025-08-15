@@ -214,8 +214,9 @@ class MediaCache:
     def get_cache_file_path():
         """Return the path to the media cache file in the user's home directory."""
         from pathlib import Path
-        home = Path.home()
-        cache_path = home / "kavinthangavel" / "simkl-mps" / "media_cache.json"
+        from .migration import get_app_data_dir
+        # Use migration-aware path
+        cache_path = get_app_data_dir() / "media_cache.json"
         return cache_path
 
     @staticmethod
