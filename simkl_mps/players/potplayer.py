@@ -5,9 +5,8 @@ Provides functionality to interact with PotPlayer using Windows messaging API.
 
 import logging
 import platform
-import time
 import re
-import os
+
 
 # Setup module logger
 logger = logging.getLogger(__name__)
@@ -25,29 +24,34 @@ if PLATFORM == 'windows':
         psutil = None
         logger.warning("PotPlayer integration requires pywin32 and psutil on Windows")
 
+# PotPlayer Windows Message constants
+PPM_GET_PLAYBACK_STATUS = 0x5001  # 0=stopped, 1=paused, 2=playing
+PPM_GET_TOTAL_TIME_MS = 0x5002
+PPM_GET_PLAYBACK_TIME_MS = 0x5004
+
 def find_potplayer_hwnd():
     """Find PotPlayer window handle."""
     try:
-        # Try to find PotPlayer64 window first (64-bit version)
         hwnd = win32gui.FindWindow("PotPlayer64", None)
         if hwnd:
             return hwnd
-        # Fall back to 32-bit version  
         return win32gui.FindWindow("PotPlayer", None)
-    except Exception:
+    except Exception as e:
+        logger.debug(f"Error finding PotPlayer window: {e}")
         return None
 
 def get_playback_ms(hwnd):
     """Get current playback position in milliseconds."""
     try:
-        return win32gui.SendMessage(hwnd, win32con.WM_USER, 0x5004, 0)
-    except Exception:
+        return win32gui.SendMessage(hwnd, win32con.WM_USER, PPM_GET_PLAYBACK_TIME_MS, 0)
+    except Exception as e:
+        logger.debug(f"Error getting playback position: {e}")
         return None
 
 def get_total_ms(hwnd):
     """Get total duration in milliseconds."""
     try:
-        return win32gui.SendMessage(hwnd, win32con.WM_USER, 0x5002, 0)
+        return win32gui.SendMessage(hwnd, win32con.WM_USER, PPM_GET_TOTAL_TIME_MS, 0)
     except Exception:
         return None
 
@@ -73,7 +77,6 @@ class PotPlayerIntegration:
         self.cached_filename = None
         self._connection_logged = False
         
-        # Verify required modules are available
         if self.platform == 'windows' and not all([win32gui, win32con, psutil]):
             logger.error("PotPlayer integration requires pywin32 and psutil libraries on Windows")
 
@@ -92,33 +95,27 @@ class PotPlayerIntegration:
         
         hwnd = find_potplayer_hwnd()
         if not hwnd:
-            # Reset cached data when PotPlayer is not found
             self.last_hwnd = None
             self.cached_filename = None
             return None, None
         
         try:
-            # Get position and duration in milliseconds
             pos_ms = get_playback_ms(hwnd)
             total_ms = get_total_ms(hwnd)
             
             if pos_ms is None or total_ms is None or total_ms <= 0:
                 return None, None
             
-            # Convert to seconds
             position = pos_ms / 1000.0
             duration = total_ms / 1000.0
             
-            # Validate and clamp position
             if position < 0:
                 position = 0.0
             elif position > duration:
                 position = duration
             
-            # Cache successful connection
             self.last_hwnd = hwnd
             
-            # Log successful connection once per session
             if not self._connection_logged:
                 logger.info("Successfully connected to PotPlayer via Windows messaging")
                 self._connection_logged = True
@@ -144,9 +141,7 @@ class PotPlayerIntegration:
             return None
             
         try:
-            # Send message to check play state
-            # Return value: 0 = stopped, 1 = paused, 2 = playing
-            state = win32gui.SendMessage(hwnd, win32con.WM_USER, 0x5001, 0)
+            state = win32gui.SendMessage(hwnd, win32con.WM_USER, PPM_GET_PLAYBACK_STATUS, 0)
             return state != 2  # Not playing means paused or stopped
         except Exception as e:
             logger.debug(f"Error checking pause state: {e}")
@@ -170,22 +165,18 @@ class PotPlayerIntegration:
             return self.cached_filename
             
         try:
-            # Get window title
             window_title = win32gui.GetWindowText(hwnd)
             if not window_title or window_title == "PotPlayer":
                 return self.cached_filename
             
-            # Clean up the title (remove PotPlayer suffix if present)
             clean_title = window_title
             if " - PotPlayer" in clean_title:
                 clean_title = clean_title.replace(" - PotPlayer", "").strip()
             
-            # Filter out menu states and UI elements
             if self._is_menu_state(clean_title):
                 logger.debug(f"Detected menu state: '{clean_title}', using cached filename")
                 return self.cached_filename
             
-            # Clean up subtitle information and cache
             cleaned_filename = self._clean_filename(clean_title)
             if cleaned_filename:
                 self.cached_filename = cleaned_filename
@@ -226,16 +217,13 @@ class PotPlayerIntegration:
         
         cleaned = filename
         
-        # Remove subtitle information
         cleaned = re.sub(r'\s*\(With subtitles\)$', '', cleaned, flags=re.IGNORECASE)
         cleaned = re.sub(r'\s*\[Subtitles.*?\]$', '', cleaned, flags=re.IGNORECASE)
         cleaned = cleaned.strip()
         
-        # Must have some content after cleaning
         if len(cleaned) < 3:
             return None
             
-        # Should look like a media file
         if (any(ext in cleaned.lower() for ext in ['.mkv', '.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', '.m4v'])
             or any(pattern in cleaned for pattern in ['1080p', '720p', '4K', '2160p', 'x264', 'x265', 'HEVC', 'BluRay', 'WEB-DL'])):
             return cleaned
