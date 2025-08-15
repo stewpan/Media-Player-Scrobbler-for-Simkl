@@ -11,9 +11,9 @@ Settings can be customized via config files, environment variables, or command-l
 
 | Platform | Config File Location |
 |----------|---------------------|
-| Windows  | `%APPDATA%\kavinthangavel\simkl-mps\.simkl_mps.env` |
-| macOS    | `~/Library/Application Support/kavinthangavel/simkl-mps/.simkl_mps.env` |
-| Linux    | `~/.local/share/kavinthangavel/simkl-mps/.simkl_mps.env` |
+| Windows  | `%APPDATA%\kavin\simkl-mps\.simkl_mps.env` |
+| macOS    | `~/Library/Application Support/kavin/simkl-mps/.simkl_mps.env` |
+| Linux    | `~/.local/share/kavin/simkl-mps/.simkl_mps.env` |
 
 ### Example Settings
 

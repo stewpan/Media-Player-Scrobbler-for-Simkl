@@ -17,12 +17,12 @@ OS="unknown"
 if [[ "$OSTYPE" == "darwin"* ]]; then
     OS="macos"
     # macOS-specific paths
-    CONFIG_DIR="${HOME}/Library/Application Support/kavinthangavel/simkl-mps"
+    CONFIG_DIR="${HOME}/Library/Application Support/kavin/simkl-mps"
     PACKAGE_EXTRAS="macos"
 elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
     OS="linux"
     # Linux-specific paths
-    CONFIG_DIR="${HOME}/.local/share/kavinthangavel/simkl-mps"
+    CONFIG_DIR="${HOME}/.local/share/kavin/simkl-mps"
     PACKAGE_EXTRAS="linux"
 else
     echo "Unsupported operating system: $OSTYPE"

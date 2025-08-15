@@ -72,7 +72,7 @@ MPS for SIMKL is licensed under the GNU GPL v3 License. See the [LICENSE](https:
 ---
 
 <div align="center">
-  <p>Made with ❤️ by <a href="https://github.com/kavinthangavel">kavinthangavel</a></p>
+  <p>Made with ❤️ by <a href="https://github.com/itskavin">kavin</a></p>
   <p>
     <a href="https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/stargazers">⭐ Star us on GitHub</a> •
     <a href="https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/issues">🐞 Report Bug</a> •

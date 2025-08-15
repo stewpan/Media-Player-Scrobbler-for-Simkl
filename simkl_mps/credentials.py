@@ -8,8 +8,15 @@ import pathlib
 import logging
 import os
 from dotenv import dotenv_values, load_dotenv
+from .migration import get_app_data_dir, perform_full_migration
 
 logger = logging.getLogger(__name__)
+
+# Perform migration on import
+try:
+    perform_full_migration()
+except Exception as e:
+    logger.warning(f"Migration warning: {e}")
 
 
 # --- Injected by build process ---
@@ -22,11 +29,10 @@ SIMKL_CLIENT_ID = CLIENT_ID_PLACEHOLDER
 SIMKL_CLIENT_SECRET = CLIENT_SECRET_PLACEHOLDER
 
 APP_NAME_FOR_PATH = "simkl-mps"
-USER_SUBDIR_FOR_PATH = "kavinthangavel"
+USER_SUBDIR_FOR_PATH = "kavin"  # Updated from kavinthangavel
 try:
-
-    APP_DATA_DIR_FOR_PATH = pathlib.Path.home() / USER_SUBDIR_FOR_PATH / APP_NAME_FOR_PATH
-    APP_DATA_DIR_FOR_PATH.mkdir(parents=True, exist_ok=True)
+    # Use migration-aware directory path
+    APP_DATA_DIR_FOR_PATH = get_app_data_dir()
     ENV_FILE_PATH = APP_DATA_DIR_FOR_PATH / ".simkl_mps.env"
     logger.debug(f"Using env file path: {ENV_FILE_PATH}")
 except Exception as e:

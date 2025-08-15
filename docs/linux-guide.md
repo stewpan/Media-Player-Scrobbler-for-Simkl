@@ -240,9 +240,9 @@ flowchart TD
 
 ### Linux-Specific File Locations
 
-- **Configuration file**: `~/.local/share/kavinthangavel/simkl-mps/.simkl_mps.env`
-- **Log files**: `~/.local/share/kavinthangavel/simkl-mps/simkl_mps.log`
-- **Backlog database**: `~/.local/share/kavinthangavel/simkl-mps/backlog.db`
+- **Configuration file**: `~/.local/share/kavin/simkl-mps/.simkl_mps.env`
+- **Log files**: `~/.local/share/kavin/simkl-mps/simkl_mps.log`
+- **Backlog database**: `~/.local/share/kavin/simkl-mps/backlog.db`
 
 ## 🔄 Updates
 
@@ -292,12 +292,12 @@ pip install --upgrade --user "simkl-mps[linux]"
 
 1. View logs in real-time with:
    ```bash
-   tail -f ~/.local/share/kavinthangavel/simkl-mps/simkl_mps.log
+   tail -f ~/.local/share/kavin/simkl-mps/simkl_mps.log
    ```
 
 2. Or open in your text editor:
    ```bash
-   xdg-open ~/.local/share/kavinthangavel/simkl-mps/simkl_mps.log
+   xdg-open ~/.local/share/kavin/simkl-mps/simkl_mps.log
    ```
 
 ### Running with Debug Logging
