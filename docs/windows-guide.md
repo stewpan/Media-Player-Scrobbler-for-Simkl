@@ -69,13 +69,22 @@ Right-click the system tray icon to access:
 flowchart TD
     A[System Tray Icon] -->|Right-click| B[Context Menu]
     B --> C[Status Information]
-    B --> D[Start/Pause Tracking]
-    B --> E[Tools Submenu]
-    E --> E1[Open Logs]
-    E --> E2[Config Directory]
-    E --> E3[Process Backlog]
-    B --> F[Check for Updates]
-    B --> G[Help/About]
+    B --> D[Start/Pause Monitoring]
+    B --> E[Tools]
+    E --> E1[Try Scrobble Again]
+    E --> E2[Process Backlog]
+    E --> E3[Watch Threshold]
+    B --> F[Developer Controls]
+    F --> F1[Open Logs]
+    F --> F2[Open Config Directory]
+    F --> F3[Clear Logs]
+    F --> F4[Clear Watch History]
+    F --> F5[Clear Backlog]
+    F --> F6[Clear Cache]
+    F --> F7[Clear All Data]
+    B --> G[Support]
+    G --> G1[Check for Updates]
+    G --> G2[Help/About]
     B --> H[Exit]
     style A fill:#4285f4,stroke:#333,stroke-width:2px,color:#fff
     style D fill:#34a853,stroke:#333,stroke-width:2px,color:#fff
@@ -83,9 +92,10 @@ flowchart TD
 ```
 
 - **Status information**: Current monitoring state and connection status
-- **Start/Pause Tracking**: Toggle monitoring
-- **Tools**: Access to logs, configuration, and backlog management
-- **Check for Updates**: Manually check for and install updates
+- **Start/Pause Monitoring**: Toggle tracking on demand
+- **Tools**: Quick recovery actions (retry scrobble, process backlog, adjust watch threshold)
+- **Developer Controls**: Advanced maintenance (open logs/config, clear logs/history/backlog/cache, perform full reset)
+- **Support**: Check for updates or open help/about dialogs
 - **Exit**: Close the application
 
 ### Windows Auto-Start

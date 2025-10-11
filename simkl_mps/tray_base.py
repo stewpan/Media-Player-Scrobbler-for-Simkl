@@ -571,6 +571,106 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
         threading.Thread(target=_process, daemon=True).start()
         return 0
 
+    def clear_logs(self, _=None):
+        """Clear application and playback log files."""
+        logger.info("Clear logs requested from tray menu...")
+
+        if not self._show_confirmation_dialog(
+            "Clear Logs",
+            "This will erase the application log and playback logs.\n\n"
+            "Use this when you need a clean slate before reproducing an issue.\n\n"
+            "Continue?"
+        ):
+            logger.info("Clear logs cancelled by user")
+            return 0
+
+        log_targets: list[tuple[str, Path, str]] = [
+            ("application log", self.log_path, "truncate"),
+            ("app data playback log", APP_DATA_DIR / "playback_log.jsonl", "truncate"),
+            ("workspace playback log", Path("playback_log.jsonl"), "delete"),
+        ]
+
+        cleared: list[str] = []
+        failures: list[str] = []
+
+        for label, target_path, mode in log_targets:
+            try:
+                if not target_path.exists():
+                    logger.debug(f"Log target '{label}' not found at {target_path}. Skipping.")
+                    continue
+
+                if mode == "truncate":
+                    with open(target_path, "w", encoding="utf-8"):
+                        pass
+                else:
+                    target_path.unlink()
+
+                cleared.append(label)
+                logger.info(f"Cleared {label} at {target_path}")
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.error(f"Failed to clear {label} at {target_path}: {exc}", exc_info=True)
+                failures.append(label)
+
+        if cleared and not failures:
+            self.show_notification("simkl-mps", f"Cleared logs: {', '.join(cleared)}")
+        elif cleared:
+            self.show_notification(
+                "simkl-mps",
+                f"Cleared logs: {', '.join(cleared)}. Failed: {', '.join(failures)}"
+            )
+        else:
+            self.show_notification("simkl-mps Error", "No log files could be cleared.")
+
+        return 0
+
+    def clear_watch_history(self, _=None):
+        """Clear the local watch history cache and viewer data."""
+        logger.info("Clear watch history requested from tray menu...")
+
+        if not self._show_confirmation_dialog(
+            "Clear Watch History",
+            "This removes the locally stored watch_history.json and viewer data.\n\n"
+            "Simkl's online history is unaffected.\n\n"
+            "Continue?"
+        ):
+            logger.info("Clear watch history cancelled by user")
+            return 0
+
+        try:
+            history_manager = None
+            if self.scrobbler and getattr(self.scrobbler, 'watch_history_manager', None):
+                history_manager = self.scrobbler.watch_history_manager
+
+            if history_manager is None:
+                from simkl_mps.watch_history_manager import WatchHistoryManager
+                history_manager = WatchHistoryManager(APP_DATA_DIR)
+                if self.scrobbler and hasattr(self.scrobbler, 'watch_history_manager'):
+                    self.scrobbler.watch_history_manager = history_manager
+
+            if history_manager is None:
+                raise RuntimeError("Watch history manager unavailable")
+
+            history_manager.clear()
+            if hasattr(history_manager, "history"):
+                history_manager.history = []
+
+            history_file = APP_DATA_DIR / "watch_history.json"
+            if history_file.exists():
+                history_file.unlink()
+
+            viewer_dir = APP_DATA_DIR / "watch-history-viewer"
+            data_js = viewer_dir / "data.js"
+            if data_js.exists():
+                data_js.unlink()
+
+            self.show_notification("simkl-mps", "Local watch history cleared.")
+            logger.info("Local watch history cleared via tray menu")
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.error(f"Failed to clear watch history: {exc}", exc_info=True)
+            self.show_notification("simkl-mps Error", f"Failed to clear watch history: {exc}")
+
+        return 0
+
     def clear_backlog(self, _=None):
         """Clear the backlog and restart application state to prevent repeated sync notifications"""
         logger.info("Clear backlog requested from tray menu...")
@@ -787,10 +887,15 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
             pystray.MenuItem("Try Scrobble Again", self.try_scrobble_again),
             pystray.MenuItem("Process Backlog Now", self.process_backlog),
             pystray.MenuItem("Watch Threshold (%)", threshold_submenu),
+        )))
+
+        menu_items.append(pystray.MenuItem("Developer Controls", pystray.Menu(
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Open Logs", self.open_logs),
             pystray.MenuItem("Open Config Directory", self.open_config_dir),
             pystray.Menu.SEPARATOR,
+            pystray.MenuItem("Clear Logs", self.clear_logs),
+            pystray.MenuItem("Clear Watch History", self.clear_watch_history),
             pystray.MenuItem("Clear Backlog", self.clear_backlog),
             pystray.MenuItem("Clear Cache", self.clear_cache),
             pystray.MenuItem("Clear All Data and Logs", self.clear_all_data),

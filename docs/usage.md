@@ -65,21 +65,16 @@ Right-click the tray icon to access the app menu with options to:
 - View currently detected media
 - Access settings
 - **Tools:**
-    - **Try Scrobble Again:** If media is misidentified or fails to scrobble, use this option. It clears the cache for the currently playing item and attempts to re-identify and scrobble it. You'll see a notification like `Attempting to re-identify 'Your Media Title'...` when triggered, followed by the usual scrobbling notifications if successful.
-    - **Clear Cache:** Removes all cached media identification data and backlog entries. This option:
-        - Clears all stored media cache files
-        - Removes all backlog data (pending scrobbles)
-        - Resets currently tracked media
-        - Shows a confirmation dialog before proceeding
-        - Helpful when experiencing persistent identification issues or after major updates
-    - **Clear All Data:** Completely resets the application by removing:
-        - All cached media data
-        - All log files
-        - Backlog and playback history
-        - Watch history
-        - All settings and credentials
-        - Environment configuration
-        - **Note:** This is a drastic action that will exit the application after completion and require re-authentication
+  - **Try Scrobble Again:** Clears cache for the active file and attempts to re-identify and scrobble it. Use when the wrong title/episode appears.
+  - **Process Backlog Now:** Immediately replays any offline scrobbles waiting in backlog.
+  - **Watch Threshold (%):** Quickly switch between preset watch thresholds or define a custom percentage.
+- **Developer Controls:**
+  - **Open Logs / Open Config Directory:** Jump straight to app diagnostics from the tray.
+  - **Clear Logs:** Truncates application and playback logs so you can capture a fresh session before debugging.
+  - **Clear Watch History:** Removes the local `watch_history.json` file and viewer data without touching your SIMKL account.
+  - **Clear Backlog:** Deletes pending offline scrobbles to stop repeated sync prompts.
+  - **Clear Cache:** Removes local media cache data while keeping logs and settings intact.
+  - **Clear All Data and Logs:** Performs a full reset—use only when you want a clean re-authentication; the app exits afterward.
 - Exit the application
 
 ## 🚦 Real-World Performance Timings

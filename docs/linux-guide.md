@@ -13,28 +13,36 @@ Before installing, ensure you have the necessary system dependencies based on yo
 **For Ubuntu/Debian:**
 ```bash
 sudo apt install pipx python3-tk python3-pip python3-dev python3-setuptools wmctrl xdotool python3-gi python3-gi-cairo gir1.2-gtk-3.0 libgirepository1.0-dev libcairo2-dev pkg-config libnotify-bin python3-venv gir1.2-appindicator3-0.1 gnome-shell-extension-appindicator
-```
-
-**For Fedora/RHEL/CentOS:**
-```bash
-sudo dnf install pipx python3-tk python3-pip python3-devel gobject-introspection-devel cairo-devel pkg-config python3-gobject gtk3 wmctrl xdotool libnotify
-```
-
-**For Arch Linux:**
-```bash
-sudo pacman -S pipx python3-tk python-pip python-setuptools python-gobject gtk3 gobject-introspection cairo pkg-config wmctrl xdotool libnotify
-```
-
-### Installation Process
-
 ```mermaid
 flowchart TD
-    A[Install Dependencies] --> B[Install via pipx]
-    B --> C[Initialize Application]
-    C --> D[Authenticate with Simkl]
-    D --> E[Configure Media Players]
-    E --> F[Setup Autostart]
-    style A fill:#4285f4,stroke:#333,stroke-width:2px,color:#fff
+   A[System Tray Icon] -->|Right-click| B[Context Menu]
+   B --> C[Status Information]
+   B --> D[Start/Pause Monitoring]
+   B --> E[Tools]
+   E --> E1[Try Scrobble Again]
+   E --> E2[Process Backlog]
+   E --> E3[Watch Threshold]
+   B --> F[Developer Controls]
+   F --> F1[Open Logs]
+   F --> F2[Open Config Directory]
+   F --> F3[Clear Logs]
+   F --> F4[Clear Watch History]
+   F --> F5[Clear Backlog]
+   F --> F6[Clear Cache]
+   F --> F7[Clear All Data]
+   B --> G[Support]
+   G --> G1[Check for Updates]
+   G --> G2[Help/About]
+   B --> H[Exit]
+   style A fill:#4285f4,stroke:#333,stroke-width:2px,color:#fff
+```
+
+- **Status information**: Current monitoring state and connection status
+- **Start/Pause Monitoring**: Toggle tracking or pause when needed
+- **Tools**: Quick recovery actions (retry scrobble, process backlog, adjust watch threshold)
+- **Developer Controls**: Advanced maintenance (open logs/config, clear logs/history/backlog/cache, perform full reset)
+- **Support**: Check for updates or open help/about dialogs
+- **Exit**: Close the application
     style D fill:#34a853,stroke:#333,stroke-width:2px,color:#fff
     style F fill:#fbbc05,stroke:#333,stroke-width:2px,color:#fff
 ```
@@ -215,27 +223,38 @@ Right-click the system tray icon to access:
 
 ```mermaid
 flowchart TD
-    A[System Tray Icon] -->|Right-click| B[Context Menu]
-    B --> C[Status Information]
-    B --> D[Start/Pause Tracking]
-    B --> E[Tools Submenu]
-    B --> F[Online Services]
-    E --> E1[Open Logs]
-    E --> E2[Config Directory]
-    E --> E3[Process Backlog]
-    F --> F1[Simkl Website]
-    F --> F2[Watch History]
-    B --> G[Check for Updates]
-    B --> H[Help/About]
-    B --> I[Exit]
-    style A fill:#4285f4,stroke:#333,stroke-width:2px,color:#fff
-    style D fill:#34a853,stroke:#333,stroke-width:2px,color:#fff
-    style F fill:#fbbc05,stroke:#333,stroke-width:2px
+   A[System Tray Icon] -->|Right-click| B[Context Menu]
+   B --> C[Status Information]
+   B --> D[Start/Pause Monitoring]
+   B --> E[Tools]
+   E --> E1[Try Scrobble Again]
+   E --> E2[Process Backlog]
+   E --> E3[Watch Threshold]
+   B --> F[Developer Controls]
+   F --> F1[Open Logs]
+   F --> F2[Open Config Directory]
+   F --> F3[Clear Logs]
+   F --> F4[Clear Watch History]
+   F --> F5[Clear Backlog]
+   F --> F6[Clear Cache]
+   F --> F7[Clear All Data]
+   B --> G[SIMKL]
+   G --> G1[SIMKL Website]
+   G --> G2[SIMKL Watch History]
+   B --> H[Support]
+   H --> H1[Check for Updates]
+   H --> H2[Help/About]
+   B --> I[Exit]
+   style A fill:#4285f4,stroke:#333,stroke-width:2px,color:#fff
+   style D fill:#34a853,stroke:#333,stroke-width:2px,color:#fff
 ```
 
 - **Status information**: Current monitoring state and connection status
-- **Start/Pause Tracking**: Toggle monitoring
-- **Tools**: Access to logs, configuration, and backlog management
+- **Start/Pause Monitoring**: Toggle monitoring
+- **Tools**: Quick fixes (retry scrobble, process backlog, adjust watch threshold)
+- **Developer Controls**: Advanced maintenance (open logs/config, clear logs/history/backlog/cache, perform full reset)
+- **SIMKL**: Open your SIMKL profile or history in the browser
+- **Support**: Check for updates or open help/about dialogs
 - **Exit**: Close the application
 
 ### Linux-Specific File Locations
