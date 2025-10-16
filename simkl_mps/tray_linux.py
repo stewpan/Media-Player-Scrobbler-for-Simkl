@@ -126,6 +126,7 @@ class AppIndicatorTray:
         """Update the AppIndicator menu"""
         try:
             menu = Gtk.Menu()
+            self.app._refresh_auth_state()
             
             # Add title item (non-clickable)
             title_item = Gtk.MenuItem(label="^_^ MPS for SIMKL")
@@ -155,6 +156,16 @@ class AppIndicatorTray:
                 menu.append(start_item)
             
             # Add separator
+            menu.append(Gtk.SeparatorMenuItem())
+
+            auth_label = "Authenticate" if not self.app.is_authenticated else "Re-authenticate"
+            if self.app._auth_in_progress:
+                auth_label = "Authenticating..."
+            auth_item = Gtk.MenuItem(label=auth_label)
+            auth_item.set_sensitive(not self.app._auth_in_progress)
+            auth_item.connect("activate", self._wrap_callback(self.app.trigger_auth_flow))
+            menu.append(auth_item)
+
             menu.append(Gtk.SeparatorMenuItem())
             
             # --- Threshold Submenu (AppIndicator) ---

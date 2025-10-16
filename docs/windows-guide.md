@@ -100,6 +100,7 @@ flowchart TD
 
 - **Status information**: Current monitoring state and connection status
 - **Start/Pause Monitoring**: Toggle tracking on demand
+- **Authenticate / Re-authenticate**: Launch the Simkl login flow if you are signing in for the first time or need to refresh an expired token
 - **Tools**: Quick recovery actions (retry scrobble, process backlog, adjust watch threshold)
 - **Developer Controls**: Advanced maintenance (open logs/config, clear logs/history/backlog/cache, perform full reset)
 - **Support**: Check for updates or open help/about dialogs

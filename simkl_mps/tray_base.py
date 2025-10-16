@@ -19,7 +19,7 @@ import tkinter as tk
 from tkinter import messagebox
 
 # Import API and credential functions
-from simkl_mps.simkl_api import get_user_settings
+from simkl_mps.simkl_api import get_user_settings, pin_auth_flow
 from simkl_mps.credentials import get_credentials
 # Import constants only, not the whole module
 from simkl_mps.main import APP_DATA_DIR, APP_NAME
@@ -121,6 +121,30 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
             return False
             
 
+    def _show_info_dialog(self, title, message):
+        """Display an informational dialog and wait for the user to dismiss it."""
+        try:
+            import threading
+
+            def show_dialog():
+                try:
+                    root = tk.Tk()
+                    root.withdraw()
+                    root.attributes('-topmost', True)
+                    root.lift()
+                    root.focus_force()
+                    messagebox.showinfo(title, message, parent=root)
+                    root.destroy()
+                except Exception as dialog_err:
+                    logger.error(f"Error showing info dialog: {dialog_err}")
+
+            thread = threading.Thread(target=show_dialog)
+            thread.start()
+            thread.join()
+        except Exception as e:
+            logger.error(f"Error launching info dialog: {e}")
+
+
     def __init__(self):
         self.scrobbler = None
         self.monitoring_active = False
@@ -133,6 +157,13 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
         # Track whether this is a first run (for notifications)
         self.is_first_run = False
         self.check_first_run()
+
+        # Track authentication state for menu labeling and actions
+        self._auth_in_progress = False
+        self.is_authenticated = False
+        self._last_known_access_token = None
+        self._last_known_client_id = None
+        self._refresh_auth_state(initial=True)
 
         # Improved asset path resolution for frozen applications
         if getattr(sys, 'frozen', False):
@@ -160,6 +191,108 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
             module_dir = Path(__file__).parent
             self.assets_dir = module_dir / "assets"
             logger.info(f"Using assets directory from source: {self.assets_dir}")
+
+    def _check_auth_state(self):
+        """Return the current authentication state and cached credentials."""
+        try:
+            creds = get_credentials()
+            token = creds.get("access_token")
+            client_id = creds.get("client_id")
+            return bool(token), token, client_id
+        except Exception as e:
+            logger.error(f"Failed to read authentication state: {e}", exc_info=True)
+            return False, None, None
+
+    def _refresh_auth_state(self, initial: bool = False):
+        """Refresh cached authentication state; return True if anything changed."""
+        authenticated, token, client_id = self._check_auth_state()
+        changed = (
+            authenticated != self.is_authenticated or
+            token != self._last_known_access_token or
+            client_id != self._last_known_client_id
+        )
+        self.is_authenticated = authenticated
+        self._last_known_access_token = token
+        self._last_known_client_id = client_id
+        if changed and not initial:
+            logger.info("Authentication state changed: %s", "authenticated" if authenticated else "not authenticated")
+        return changed
+
+    def _get_auth_menu_label(self):
+        if self._auth_in_progress:
+            return "Authenticating..."
+        return "Authenticate" if not self.is_authenticated else "Re-authenticate"
+
+    def trigger_auth_flow(self, _=None):
+        """Start the Simkl authentication flow from the tray menu."""
+        if self._auth_in_progress:
+            self.show_notification("SIMKL Authentication", "Authentication is already in progress.")
+            return 0
+
+        authenticated, _, client_id = self._check_auth_state()
+        if not client_id or "PLACEHOLDER" in str(client_id):
+            logger.error("Client ID missing; cannot start authentication flow.")
+            self.show_notification("Authentication Error", "Client ID is not configured. Reinstall or check your build configuration.")
+            return 0
+
+        self._auth_in_progress = True
+        if not authenticated:
+            logger.info("Starting initial authentication flow from tray.")
+        else:
+            logger.info("Starting re-authentication flow from tray.")
+
+        # Refresh menu immediately to show in-progress state
+        try:
+            self.update_icon()
+        except Exception:
+            logger.debug("Unable to refresh icon before authentication starts", exc_info=True)
+
+        threading.Thread(target=self._run_auth_flow, args=(client_id,), daemon=True).start()
+        return 0
+
+    def _run_auth_flow(self, client_id: str):
+        """Execute the Simkl PIN authentication flow in a background thread."""
+        try:
+            self._show_info_dialog(
+                "Simkl Authentication",
+                "A browser window will open so you can authorize Media Player Scrobbler for SIMKL."
+                " Sign in to Simkl and approve the request, then return here once it is complete."
+            )
+            self.show_notification(
+                "Simkl Authentication",
+                "Opening your browser for Simkl authorization. Complete the steps and return to the tray."
+            )
+
+            new_token = pin_auth_flow(client_id)
+
+            if new_token:
+                logger.info("Authentication flow completed successfully from tray.")
+                self.show_notification("Simkl Authentication", "Authentication completed successfully.")
+
+                try:
+                    # Ensure the latest credentials are cached
+                    self._refresh_auth_state()
+                    if self.scrobbler:
+                        self.scrobbler.access_token = new_token
+                        self.scrobbler.client_id = client_id
+                        if hasattr(self.scrobbler, 'monitor') and self.scrobbler.monitor:
+                            self.scrobbler.monitor.set_credentials(client_id, new_token)
+                except Exception as update_err:
+                    logger.error(f"Failed to propagate new credentials to running components: {update_err}", exc_info=True)
+            else:
+                logger.warning("Authentication flow did not return a token (cancelled or timed out).")
+                self.show_notification("Simkl Authentication", "Authentication was not completed. You can try again anytime.")
+
+        except Exception as e:
+            logger.error(f"Authentication flow failed: {e}", exc_info=True)
+            self.show_notification("Authentication Error", f"Authentication failed: {e}")
+        finally:
+            self._refresh_auth_state()
+            self._auth_in_progress = False
+            try:
+                self.update_icon()
+            except Exception:
+                logger.debug("Unable to refresh icon after authentication", exc_info=True)
         
     def get_status_text(self):
         """Generate status text for the menu item"""
@@ -856,6 +989,7 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
     def _build_pystray_menu_items(self):
         """Builds the list of pystray menu items common to multiple platforms."""
         # Get current threshold for radio button state
+        self._refresh_auth_state()
         current_threshold = get_setting('watch_completion_threshold', DEFAULT_THRESHOLD)
         is_preset = lambda val: current_threshold == val
 
@@ -873,6 +1007,13 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
             menu_items.append(pystray.MenuItem("Start Monitoring", self.start_monitoring))
         menu_items.append(pystray.Menu.SEPARATOR)
         menu_items.append(pystray.MenuItem("Watch History", self.open_watch_history))
+
+        menu_items.append(pystray.MenuItem(
+            lambda item: self._get_auth_menu_label(),
+            self.trigger_auth_flow,
+            enabled=not self._auth_in_progress
+        ))
+        menu_items.append(pystray.Menu.SEPARATOR)
 
         # --- Tools submenu ---
         threshold_submenu = pystray.Menu(
@@ -1104,6 +1245,9 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
                     if hasattr(self.scrobbler, attr):
                         setattr(self.scrobbler, attr, None)
                 cleared_items.append("in-memory cache")
+
+            # Reset authentication state after credential files are removed
+            self._refresh_auth_state()
             
             # Prepare notification message
             if cleared_items and not failed_items:
