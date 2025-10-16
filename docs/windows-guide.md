@@ -45,6 +45,13 @@ flowchart LR
 - **Auto-update system**: Checks for updates weekly
 - **Clean uninstallation**: Properly removes all components
 
+### Silent & Automated Deployment
+
+- The installer now honors common enterprise parameters: use `/quiet`, `/silent`, `/s`, `/qn`, or `/passive` when automating deployments
+- Each alias maps internally to Inno Setup's `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART` flags, ensuring the Microsoft Store silent install check succeeds
+- Combine additional switches such as `/LOG="C:\\temp\\mpss-install.log"` as needed; they will be preserved when silent aliases are used
+- When running interactively, the traditional `/SILENT` or `/VERYSILENT` options continue to function unchanged
+
 ### Post-Installation
 
 After installation completes:
