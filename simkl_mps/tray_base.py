@@ -130,7 +130,6 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
     def _show_info_dialog(self, title, message):
         """Display an informational dialog and wait for the user to dismiss it."""
         try:
-            import threading
 
             def show_dialog():
                 try:
