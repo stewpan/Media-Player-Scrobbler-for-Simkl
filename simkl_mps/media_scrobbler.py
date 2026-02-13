@@ -40,6 +40,7 @@ except ImportError:
 from simkl_mps.utils.constants import PLAYING, PAUSED, STOPPED, DEFAULT_POLL_INTERVAL
 from simkl_mps.config_manager import get_setting, DEFAULT_THRESHOLD
 from simkl_mps.watch_history_manager import WatchHistoryManager
+from simkl_mps.utils.path_filter import is_path_allowed
 
 class MediaScrobbler:
     """
@@ -127,6 +128,18 @@ class MediaScrobbler:
         self._mpv_wrapper_integration = None
         self._potplayer_integration = None
         self.watch_history = WatchHistoryManager(self.app_data_dir) # Initialize watch history manager
+        self._allow_dirs = get_setting('allow_dirs', [])
+        self._deny_dirs = get_setting('deny_dirs', [])
+        self._dir_filter_last_refresh = 0
+
+    def _refresh_dir_filters(self, min_interval_seconds=60):
+        """Refresh directory allow/deny lists periodically to avoid frequent disk I/O."""
+        current_time = time.time()
+        if current_time - self._dir_filter_last_refresh < min_interval_seconds:
+            return
+        self._allow_dirs = get_setting('allow_dirs', [])
+        self._deny_dirs = get_setting('deny_dirs', [])
+        self._dir_filter_last_refresh = current_time
 
     def set_notification_callback(self, callback):
         """Set a callback function for notifications"""
@@ -149,11 +162,23 @@ class MediaScrobbler:
             else:
                 logger.debug("Backlog processing state and notification throttles were already empty")
 
-    def _send_notification(self, title, message, online_only=False, offline_only=False):
+    def _send_notification(self, title, message, online_only=False, offline_only=False, critical=False):
         """
         Safely sends a notification if the callback is set, respecting online/offline constraints.
+        
+        Args:
+            title: Notification title
+            message: Notification message
+            online_only: Only send when internet is connected
+            offline_only: Only send when offline
+            critical: If True, always send regardless of user's disable_notifications setting
         """
         if self.notification_callback:
+            # Check if notifications are disabled for non-critical notifications
+            if not critical and get_setting('disable_notifications', False):
+                logger.debug(f"Notification '{title}' suppressed (disable_notifications setting is True).")
+                return
+            
             connected = is_internet_connected()
             if (online_only and not connected) or \
                (offline_only and connected):
@@ -328,7 +353,8 @@ class MediaScrobbler:
                             self._send_notification(
                                 f"{player_type} Connection Error",
                                 f"Could not connect to {player_type}. {config_instructions}",
-                                online_only=False
+                                online_only=False,
+                                critical=True
                             )
             except Exception as e:
                 logger.error(f"Error getting pos/dur from {process_name} ({getattr(integration, '__class__', type(integration)).__name__}): {e}", exc_info=True)
@@ -365,7 +391,8 @@ class MediaScrobbler:
                         self._send_notification(
                             f"{player_type} Connection Error",
                             f"Could not connect to {player_type} web interface. {config_instructions}",
-                            online_only=False
+                            online_only=False,
+                            critical=True
                         )
             except Exception as e:
                 logger.error(f"Error getting filepath from {process_name} ({integration.__class__.__name__}): {e}", exc_info=True)
@@ -400,6 +427,13 @@ class MediaScrobbler:
         if not filepath:
             if self.currently_tracking:
                 logger.info("Media playback ended: No file detected from supported player.")
+                self.stop_tracking()
+            return None
+
+        self._refresh_dir_filters()
+        if not is_path_allowed(filepath, self._allow_dirs, self._deny_dirs):
+            logger.info("Filepath excluded by directory filters: '%s'", filepath)
+            if self.currently_tracking:
                 self.stop_tracking()
             return None
 
@@ -1367,7 +1401,7 @@ class MediaScrobbler:
                     self.simkl_id, display_title, "missing_credentials",
                     {"simkl_id": self.simkl_id, "type": self.media_type, "season": self.season, "episode": self.episode}
                 )
-                self._send_notification("Auth Error", f"'{display_title}' needs sync (missing creds). Added to backlog.")
+                self._send_notification("Auth Error", f"'{display_title}' needs sync (missing creds). Added to backlog.", critical=True)
             return False
 
         # --- Identification Check ---

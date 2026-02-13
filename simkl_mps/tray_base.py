@@ -88,6 +88,16 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
             The new threshold value (int) entered by the user, or None if cancelled.
          """       
         pass
+
+    @abc.abstractmethod
+    def _ask_directory_filter_dialog(self, title: str, current_value: str, help_text: str) -> str | None:
+        """
+        Platform-specific dialog for editing directory filters.
+
+        Returns:
+            Updated string (comma/newline separated) or None if cancelled.
+        """
+        pass
             
     def _show_confirmation_dialog(self, title, message):
         """
@@ -249,6 +259,79 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
             return int(value)
         except (TypeError, ValueError):
             return DEFAULT_THRESHOLD
+
+    def _format_dir_list_for_dialog(self, values: Any) -> str:
+        """Format directory lists for dialog input."""
+        if not values:
+            return ""
+        if isinstance(values, str):
+            return values
+        try:
+            return "\n".join([str(value) for value in values if value])
+        except Exception:
+            return ""
+
+    def _parse_dir_list_input(self, input_text: str | None) -> list[str]:
+        """Parse dialog input into a normalized list of paths or patterns."""
+        if not input_text:
+            return []
+        parts: list[str] = []
+        for line in input_text.splitlines():
+            for token in re.split(r"[;,]", line):
+                cleaned = token.strip()
+                if cleaned:
+                    parts.append(cleaned)
+        return parts
+
+    def _apply_dir_filter_change(self, key: str, entries: list[str]) -> None:
+        """
+        Persist filter settings and signal the running scrobbler to refresh its configuration.
+        
+        This respects encapsulation by only triggering a refresh of the scrobbler's
+        internal configuration rather than directly modifying its private attributes.
+        The scrobbler will naturally reload from settings on the next filter check.
+        """
+        try:
+            set_setting(key, entries)
+            media_scrobbler = self._get_media_scrobbler()
+            if media_scrobbler is not None:
+                if hasattr(media_scrobbler, "_dir_filter_last_refresh"):
+                    media_scrobbler._dir_filter_last_refresh = 0
+            label = "Allow" if key == "allow_dirs" else "Deny"
+            self.show_notification("Settings Updated", f"{label} directories updated.")
+        except Exception as exc:
+            logger.error(f"Failed to update {key}: {exc}", exc_info=True)
+            self.show_notification("Error", f"Failed to update directory filters: {exc}")
+
+    def set_allow_dirs(self, _=None):
+        current_value = self._format_dir_list_for_dialog(get_setting("allow_dirs", []))
+        help_text = "Enter paths or glob patterns, separated by commas or semicolons."
+        updated_text = self._ask_directory_filter_dialog("Set Allow Directories", current_value, help_text)
+        if updated_text is not None:
+            entries = self._parse_dir_list_input(updated_text)
+            self._apply_dir_filter_change("allow_dirs", entries)
+        self.update_icon()
+        return 0
+
+    def set_deny_dirs(self, _=None):
+        current_value = self._format_dir_list_for_dialog(get_setting("deny_dirs", []))
+        help_text = "Enter paths or glob patterns, separated by commas or semicolons."
+        updated_text = self._ask_directory_filter_dialog("Set Deny Directories", current_value, help_text)
+        if updated_text is not None:
+            entries = self._parse_dir_list_input(updated_text)
+            self._apply_dir_filter_change("deny_dirs", entries)
+        self.update_icon()
+        return 0
+
+    def clear_allow_dirs(self, _=None):
+        self._apply_dir_filter_change("allow_dirs", [])
+        self.update_icon()
+        return 0
+
+    def clear_deny_dirs(self, _=None):
+        self._apply_dir_filter_change("deny_dirs", [])
+        self.update_icon()
+        return 0
 
     def _get_app_version(self) -> str:
         """Resolve application version from installed metadata or local package source."""
@@ -684,7 +767,8 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
                     # Only show notification if:
                     # 1. This is the first run of the app after installation
                     # 2. User manually started the app from the menu
-                    if self.is_first_run or is_manual_start:
+                    # 3. Notifications are not disabled
+                    if (self.is_first_run or is_manual_start) and not get_setting('disable_notifications', False):
                         self.show_notification(
                             "simkl-mps",
                             "Media monitoring started"
@@ -1070,6 +1154,37 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
 
     # --- End Watch Threshold Logic --- 
     
+    def toggle_notifications_disabled(self, _=None):
+        """Toggle the disable_notifications setting and show confirmation."""
+        try:
+            current_value = get_setting('disable_notifications', False)
+            new_value = not current_value
+            set_setting('disable_notifications', new_value)
+            
+            status = "disabled" if new_value else "enabled"
+            logger.info(f"Notifications {status} via tray menu")
+            
+            # Show confirmation (always show this one, it's critical)
+            # Access the scrobbler to send critical notification
+            media_scrobbler = self._get_media_scrobbler()
+            if media_scrobbler:
+                media_scrobbler._send_notification(
+                    "Settings Updated",
+                    f"Notifications {status}. Critical alerts will still appear.",
+                    critical=True
+                )
+            else:
+                # Fallback if scrobbler not available
+                self.show_notification("Settings Updated", f"Notifications {status}. Critical alerts will still appear.")
+            
+            self.update_icon()  # Refresh menu to show new checkmark state
+            
+        except Exception as e:
+            logger.error(f"Error toggling notifications: {e}", exc_info=True)
+            self.show_notification("Error", f"Failed to toggle notifications: {e}")
+        
+        return 0
+    
     def check_first_run(self):
         """Check if this is the first time the app is being run"""
         # Platform-specific implementation required
@@ -1111,6 +1226,12 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
             pystray.MenuItem("Sync Backlog Now", self.process_backlog),
             pystray.MenuItem("Completion Threshold", threshold_submenu),
             pystray.Menu.SEPARATOR,
+            pystray.MenuItem(
+                "Disable Notifications",
+                self.toggle_notifications_disabled,
+                checked=lambda item: get_setting('disable_notifications', False)
+            ),
+            pystray.Menu.SEPARATOR,
             pystray.MenuItem("Open Local Watch History", self.open_watch_history),
         )))
         menu_items.append(pystray.Menu.SEPARATOR)
@@ -1131,6 +1252,13 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
         menu_items.append(pystray.MenuItem("Maintenance", pystray.Menu(
             pystray.MenuItem("Open Logs", self.open_logs),
             pystray.MenuItem("Open Data Folder", self.open_config_dir),
+            pystray.MenuItem("Directory Filters", pystray.Menu(
+                pystray.MenuItem("Edit Allow List", self.set_allow_dirs),
+                pystray.MenuItem("Edit Deny List", self.set_deny_dirs),
+                pystray.Menu.SEPARATOR,
+                pystray.MenuItem("Clear Allow List", self.clear_allow_dirs),
+                pystray.MenuItem("Clear Deny List", self.clear_deny_dirs),
+            )),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Clear Backlog", self.clear_backlog),
             pystray.MenuItem("Clear Cache", self.clear_cache),
