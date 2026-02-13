@@ -302,7 +302,17 @@ Tips:
         try:
             if system == 'win32':
                 # Add -Silent parameter to prevent the updater from showing its own notifications
-                command = ["powershell", "-ExecutionPolicy", "Bypass", "-File", str(updater_path), "-CheckOnly", "-Silent"]
+                command = [
+                    "powershell.exe",
+                    "-NoProfile",
+                    "-NonInteractive",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-File",
+                    str(updater_path),
+                    "-CheckOnly",
+                    "-Silent"
+                ]
                 # Hide PowerShell window
                 startupinfo = subprocess.STARTUPINFO()
                 startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
@@ -328,6 +338,14 @@ Tips:
             stderr = process.stderr.strip()
             exit_code = process.returncode
 
+            parsed_output = ""
+            if stdout:
+                for line in stdout.splitlines():
+                    line = line.strip()
+                    if line.startswith("UPDATE_AVAILABLE:") or line.startswith("NO_UPDATE:"):
+                        parsed_output = line
+                        break
+
             logger.info(f"Update check script exited with code: {exit_code}")
             logger.debug(f"Update check stdout: {stdout}")
             if stderr:
@@ -345,9 +363,9 @@ Tips:
                     self.show_notification("Update Error", f"Failed to run update check script (Code: {exit_code}).")
 
             # Process stdout if exit code was 0
-            elif stdout.startswith("UPDATE_AVAILABLE:"):
+            elif parsed_output.startswith("UPDATE_AVAILABLE:"):
                 try:
-                    parts = stdout.split(" ", 2) # UPDATE_AVAILABLE: <version> <url>
+                    parts = parsed_output.split(" ", 2) # UPDATE_AVAILABLE: <version> <url>
                     new_version = parts[1]
                     url = parts[2]
                     logger.info(f"Update found: Version {new_version}")
@@ -363,15 +381,15 @@ Tips:
                     webbrowser.open(url)
                     
                 except IndexError:
-                    logger.error(f"Could not parse UPDATE_AVAILABLE string: {stdout}")
+                    logger.error(f"Could not parse UPDATE_AVAILABLE string: {parsed_output}")
                     self.show_notification("Update Error", "Failed to parse update information.")
-            elif stdout.startswith("NO_UPDATE:"):
+            elif parsed_output.startswith("NO_UPDATE:"):
                 try:
-                    version = stdout.split(" ", 1)[1]
+                    version = parsed_output.split(" ", 1)[1]
                     logger.info(f"No update available. Current version: {version}")
                     self.show_notification("No Updates Available", f"You are already running the latest version ({version}).")
                 except IndexError:
-                     logger.error(f"Could not parse NO_UPDATE string: {stdout}")
+                     logger.error(f"Could not parse NO_UPDATE string: {parsed_output}")
                      self.show_notification("No Updates Available", "You are already running the latest version.")
             else:
                 # Unexpected output
