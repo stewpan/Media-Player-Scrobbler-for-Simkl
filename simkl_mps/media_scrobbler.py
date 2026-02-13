@@ -175,7 +175,6 @@ class MediaScrobbler:
         """
         if self.notification_callback:
             # Check if notifications are disabled for non-critical notifications
-            from simkl_mps.config_manager import get_setting
             if not critical and get_setting('disable_notifications', False):
                 logger.debug(f"Notification '{title}' suppressed (disable_notifications setting is True).")
                 return

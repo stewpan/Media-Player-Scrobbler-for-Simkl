@@ -766,7 +766,6 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
                     # 1. This is the first run of the app after installation
                     # 2. User manually started the app from the menu
                     # 3. Notifications are not disabled
-                    from simkl_mps.config_manager import get_setting
                     if (self.is_first_run or is_manual_start) and not get_setting('disable_notifications', False):
                         self.show_notification(
                             "simkl-mps",
@@ -1164,7 +1163,6 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
             logger.info(f"Notifications {status} via tray menu")
             
             # Show confirmation (always show this one, it's critical)
-            from simkl_mps.media_scrobbler import MediaScrobbler
             # Access the scrobbler to send critical notification
             media_scrobbler = self._get_media_scrobbler()
             if media_scrobbler:

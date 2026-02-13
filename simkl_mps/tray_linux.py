@@ -930,12 +930,8 @@ class TrayAppLinux(TrayAppBase):
                 return process.stdout.strip()
             return None
         except Exception as e:
-            logger.error(f"Error using zenity for directory filters: {e}")
+            logger.error(f"Error using zenity for directory filters: {e}", exc_info=True)
             self.show_notification("Error", f"Could not edit directory filters: {e}")
-            return None
-        except Exception as e:
-            logger.error(f"Error using zenity for threshold input: {e}", exc_info=True)
-            self.show_notification("Error", f"Could not get custom threshold: {e}")
             return None
 
     # _set_preset_threshold is handled by base class
