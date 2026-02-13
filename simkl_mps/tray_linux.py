@@ -169,19 +169,21 @@ class AppIndicatorTray:
             
             # Add separator
             menu.append(gtk_module.SeparatorMenuItem())
-
-            auth_label = "Authenticate" if not self.app.is_authenticated else "Re-authenticate"
-            if self.app._auth_in_progress:
-                auth_label = "Authenticating..."
-            auth_item = gtk_module.MenuItem(label=auth_label)
-            auth_item.set_sensitive(not self.app._auth_in_progress)
-            auth_item.connect("activate", self._wrap_callback(self.app.trigger_auth_flow))
-            menu.append(auth_item)
-
-            menu.append(gtk_module.SeparatorMenuItem())
             
-            # --- Threshold Submenu (AppIndicator) ---
-            threshold_item = gtk_module.MenuItem(label="Watch Threshold (%)")
+            # --- Scrobbling submenu ---
+            scrobbling_item = gtk_module.MenuItem(label="Scrobbling")
+            scrobbling_submenu = gtk_module.Menu()
+            
+            retry_item = gtk_module.MenuItem(label="Retry Last Scrobble")
+            retry_item.connect("activate", self._wrap_callback(self.app.try_scrobble_again))
+            scrobbling_submenu.append(retry_item)
+            
+            sync_item = gtk_module.MenuItem(label="Sync Backlog Now")
+            sync_item.connect("activate", self._wrap_callback(self.app.process_backlog))
+            scrobbling_submenu.append(sync_item)
+            
+            # --- Threshold Submenu (nested under Scrobbling) ---
+            threshold_item = gtk_module.MenuItem(label="Completion Threshold")
             threshold_submenu = gtk_module.Menu()
             threshold_group = [] # For radio buttons
 
@@ -204,61 +206,106 @@ class AppIndicatorTray:
             threshold_submenu.append(custom_item)
 
             threshold_item.set_submenu(threshold_submenu)
-            # --- End Threshold Submenu ---
-
-            # Tools submenu
-            tools_item = Gtk.MenuItem(label="Tools")
-            tools_submenu = Gtk.Menu()
-
-            tools_submenu.append(threshold_item) # Add threshold submenu to Tools
-
-            logs_item = Gtk.MenuItem(label="Open Logs")
+            scrobbling_submenu.append(threshold_item)
+            
+            watch_history_item = gtk_module.MenuItem(label="Open Local Watch History")
+            watch_history_item.connect("activate", self._wrap_callback(self.app.open_watch_history))
+            scrobbling_submenu.append(watch_history_item)
+            
+            scrobbling_item.set_submenu(scrobbling_submenu)
+            menu.append(scrobbling_item)
+            
+            # --- SIMKL submenu ---
+            simkl_item = gtk_module.MenuItem(label="SIMKL")
+            simkl_submenu = gtk_module.Menu()
+            
+            auth_label = "Authenticate" if not self.app.is_authenticated else "Re-authenticate"
+            if self.app._auth_in_progress:
+                auth_label = "Authenticating..."
+            auth_item = gtk_module.MenuItem(label=auth_label)
+            auth_item.set_sensitive(not self.app._auth_in_progress)
+            auth_item.connect("activate", self._wrap_callback(self.app.trigger_auth_flow))
+            simkl_submenu.append(auth_item)
+            
+            simkl_submenu.append(gtk_module.SeparatorMenuItem())
+            
+            website_item = gtk_module.MenuItem(label="Open Website")
+            website_item.connect("activate", self._wrap_callback(self.app.open_simkl))
+            simkl_submenu.append(website_item)
+            
+            simkl_history_item = gtk_module.MenuItem(label="Open Watch History")
+            simkl_history_item.connect("activate", self._wrap_callback(self.app.open_simkl_history))
+            simkl_submenu.append(simkl_history_item)
+            
+            simkl_item.set_submenu(simkl_submenu)
+            menu.append(simkl_item)
+            
+            # --- Maintenance submenu ---
+            maintenance_item = gtk_module.MenuItem(label="Maintenance")
+            maintenance_submenu = gtk_module.Menu()
+            
+            logs_item = gtk_module.MenuItem(label="Open Logs")
             logs_item.connect("activate", self._wrap_callback(self.app.open_logs))
-            tools_submenu.append(logs_item)
+            maintenance_submenu.append(logs_item)
             
-            config_item = Gtk.MenuItem(label="Open Config Directory")
+            config_item = gtk_module.MenuItem(label="Open Data Folder")
             config_item.connect("activate", self._wrap_callback(self.app.open_config_dir))
-            tools_submenu.append(config_item)
+            maintenance_submenu.append(config_item)
             
-            backlog_item = Gtk.MenuItem(label="Process Backlog Now")
-            backlog_item.connect("activate", self._wrap_callback(self.app.process_backlog))
-            tools_submenu.append(backlog_item)
+            maintenance_submenu.append(gtk_module.SeparatorMenuItem())
             
-            tools_item.set_submenu(tools_submenu)
-            menu.append(tools_item)
+            clear_backlog_item = gtk_module.MenuItem(label="Clear Backlog")
+            clear_backlog_item.connect("activate", self._wrap_callback(self.app.clear_backlog))
+            maintenance_submenu.append(clear_backlog_item)
             
-            # Online Services submenu
-            services_item = Gtk.MenuItem(label="Online Services")
-            services_submenu = Gtk.Menu()
+            clear_cache_item = gtk_module.MenuItem(label="Clear Cache")
+            clear_cache_item.connect("activate", self._wrap_callback(self.app.clear_cache))
+            maintenance_submenu.append(clear_cache_item)
             
-            simkl_item = Gtk.MenuItem(label="SIMKL Website")
-            simkl_item.connect("activate", self._wrap_callback(self.app.open_simkl))
-            services_submenu.append(simkl_item)
+            clear_history_item = gtk_module.MenuItem(label="Clear Watch History")
+            clear_history_item.connect("activate", self._wrap_callback(self.app.clear_watch_history))
+            maintenance_submenu.append(clear_history_item)
             
-            history_item = Gtk.MenuItem(label="View Watch History")
-            history_item.connect("activate", self._wrap_callback(self.app.open_simkl_history))
-            services_submenu.append(history_item)
+            clear_logs_item = gtk_module.MenuItem(label="Clear Logs")
+            clear_logs_item.connect("activate", self._wrap_callback(self.app.clear_logs))
+            maintenance_submenu.append(clear_logs_item)
             
-            services_item.set_submenu(services_submenu)
-            menu.append(services_item)
+            maintenance_submenu.append(gtk_module.SeparatorMenuItem())
+            
+            reset_item = gtk_module.MenuItem(label="Reset App Data (Danger)")
+            reset_item.connect("activate", self._wrap_callback(self.app.clear_all_data))
+            maintenance_submenu.append(reset_item)
+            
+            maintenance_item.set_submenu(maintenance_submenu)
+            menu.append(maintenance_item)
+            
+            # --- More submenu ---
+            more_item = gtk_module.MenuItem(label="More")
+            more_submenu = gtk_module.Menu()
+            
+            donate_item = gtk_module.MenuItem(label="Donate ❤️")
+            donate_item.connect("activate", self._wrap_callback(self.app.open_donation_page))
+            more_submenu.append(donate_item)
+            
+            more_submenu.append(gtk_module.SeparatorMenuItem())
+            
+            update_item = gtk_module.MenuItem(label="Check for Updates")
+            update_item.connect("activate", self._wrap_callback(self.app.check_updates_thread))
+            more_submenu.append(update_item)
+            
+            help_item = gtk_module.MenuItem(label="Help")
+            help_item.connect("activate", self._wrap_callback(self.app.show_help))
+            more_submenu.append(help_item)
+            
+            about_item = gtk_module.MenuItem(label="About")
+            about_item.connect("activate", self._wrap_callback(self.app.show_about))
+            more_submenu.append(about_item)
+            
+            more_item.set_submenu(more_submenu)
+            menu.append(more_item)
             
             # Add separator
             menu.append(gtk_module.SeparatorMenuItem())
-            
-            # Check for updates
-            update_item = gtk_module.MenuItem(label="Check for Updates")
-            update_item.connect("activate", self._wrap_callback(self.app.check_updates_thread))
-            menu.append(update_item)
-            
-            # About
-            about_item = gtk_module.MenuItem(label="About")
-            about_item.connect("activate", self._wrap_callback(self.app.show_about))
-            menu.append(about_item)
-            
-            # Help
-            help_item = gtk_module.MenuItem(label="Help")
-            help_item.connect("activate", self._wrap_callback(self.app.show_help))
-            menu.append(help_item)
             
             # Exit
             exit_item = gtk_module.MenuItem(label="Exit")
