@@ -208,6 +208,17 @@ class AppIndicatorTray:
             threshold_item.set_submenu(threshold_submenu)
             scrobbling_submenu.append(threshold_item)
             
+            scrobbling_submenu.append(gtk_module.SeparatorMenuItem())
+            
+            # Disable Notifications toggle
+            notifications_disabled = get_setting('disable_notifications', False)
+            notifications_item = gtk_module.CheckMenuItem(label="Disable Notifications")
+            notifications_item.set_active(notifications_disabled)
+            notifications_item.connect("activate", self._wrap_callback(self.app.toggle_notifications_disabled))
+            scrobbling_submenu.append(notifications_item)
+            
+            scrobbling_submenu.append(gtk_module.SeparatorMenuItem())
+            
             watch_history_item = gtk_module.MenuItem(label="Open Local Watch History")
             watch_history_item.connect("activate", self._wrap_callback(self.app.open_watch_history))
             scrobbling_submenu.append(watch_history_item)
@@ -919,12 +930,8 @@ class TrayAppLinux(TrayAppBase):
                 return process.stdout.strip()
             return None
         except Exception as e:
-            logger.error(f"Error using zenity for directory filters: {e}")
+            logger.error(f"Error using zenity for directory filters: {e}", exc_info=True)
             self.show_notification("Error", f"Could not edit directory filters: {e}")
-            return None
-        except Exception as e:
-            logger.error(f"Error using zenity for threshold input: {e}", exc_info=True)
-            self.show_notification("Error", f"Could not get custom threshold: {e}")
             return None
 
     # _set_preset_threshold is handled by base class

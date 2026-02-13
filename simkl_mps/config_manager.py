@@ -37,6 +37,7 @@ DEFAULT_SETTINGS = {
     "watch_completion_threshold": DEFAULT_THRESHOLD,
     "user_subdir": DEFAULT_USER_SUBDIR,
     "auto_sync_interval": 120,  # Auto sync backlog every 2 minutes by default
+    "disable_notifications": False,  # Show all notifications by default
     "allow_dirs": [],
     "deny_dirs": []
 }

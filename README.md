@@ -26,17 +26,6 @@
 
 After installation, authenticate with SIMKL and **configure your media players** using the [Media Players Guide](docs/media-players.md) (this step is critical for accurate tracking).
 
-## 📚 Documentation
-
-- [Windows Guide](docs/windows-guide.md)
-- [Linux Guide](docs/linux-guide.md)
-- [Mac Guide](docs/mac-guide.md)
-- [Supported Media Players](docs/media-players.md)
-- [Usage Guide](docs/usage.md)
-- [Local Watch History](docs/watch-history.md)
-- [Advanced & Developer Guide](docs/configuration.md)
-- [Troubleshooting Guide](docs/troubleshooting.md)
-- [Todo List](docs/todo.md)
 
 ## 🔍 How It Works
 
