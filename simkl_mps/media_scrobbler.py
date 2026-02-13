@@ -141,6 +141,11 @@ class MediaScrobbler:
         self._deny_dirs = get_setting('deny_dirs', [])
         self._dir_filter_last_refresh = current_time
 
+    def signal_dir_filters_update(self):
+        """Signal that directory filters have been updated and should be refreshed on the next check."""
+        self._dir_filter_last_refresh = 0
+        logger.info("Received signal to refresh directory filters.")
+
     def set_notification_callback(self, callback):
         """Set a callback function for notifications"""
         self.notification_callback = callback
