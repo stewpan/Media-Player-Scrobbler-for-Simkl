@@ -11,6 +11,8 @@ import queue # Added for thread-safe communication for custom threshold dialog
 import logging
 import webbrowser
 import subprocess
+import re
+from importlib import metadata as importlib_metadata
 from pathlib import Path
 from typing import Any, Optional, TYPE_CHECKING
 from PIL import Image, ImageDraw, ImageFont
@@ -248,7 +250,43 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
         except (TypeError, ValueError):
             return DEFAULT_THRESHOLD
 
-    def check_updates_thread(self):
+    def _get_app_version(self) -> str:
+        """Resolve application version from installed metadata or local package source."""
+        # 1) Prefer installed package metadata
+        for dist_name in ("simkl-mps", "simkl_mps"):
+            try:
+                version = importlib_metadata.version(dist_name)
+                if version:
+                    return version
+            except importlib_metadata.PackageNotFoundError:
+                continue
+            except Exception:
+                logger.debug("Failed to read version from importlib.metadata for %s", dist_name, exc_info=True)
+
+        # 2) Fallback: parse local package __init__.py version constant
+        try:
+            init_file = Path(__file__).parent / "__init__.py"
+            if init_file.exists():
+                content = init_file.read_text(encoding="utf-8", errors="ignore")
+                match = re.search(r"__version__\s*=\s*[\"']([^\"']+)[\"']", content)
+                if match:
+                    return match.group(1).strip()
+        except Exception:
+            logger.debug("Failed to parse local __version__ from __init__.py", exc_info=True)
+
+        return "0.0.0"
+
+    def _build_about_text(self) -> str:
+        """Build standard About dialog text."""
+        return (
+            "Media Player Scrobbler for SIMKL\n"
+            f"Version: {self._get_app_version()}\n"
+            "Author: kavin\n"
+            "License: GNU GPL v3\n\n"
+            "Automatically track and scrobble your media to SIMKL."
+        )
+
+    def check_updates_thread(self, _=None):
         """Optional hook for subclasses that implement update checks."""
         logger.debug("Update check not implemented for this platform.")
 
@@ -1106,7 +1144,7 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
         menu_items.append(pystray.MenuItem("More", pystray.Menu(
             pystray.MenuItem("Donate ❤️", self.open_donation_page),
             pystray.Menu.SEPARATOR,
-            pystray.MenuItem("Check for Updates", lambda: self.check_updates_thread() if hasattr(self, 'check_updates_thread') else None),
+            pystray.MenuItem("Check for Updates", self.check_updates_thread),
             pystray.MenuItem("Help", self.show_help),
             pystray.MenuItem("About", self.show_about),
         )))        # --- Exit (always last, separated) ---

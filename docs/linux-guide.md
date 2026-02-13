@@ -1,8 +1,6 @@
 # 🐧 Linux Installation & Configuration Guide
 
-This comprehensive guide provides detailed instructions specifically for Linux users of Media Player Scrobbler for Simkl, focusing on installation, system integration, and media player configuration for various Linux distributions.
-
-> **Important Note**: Currently, the application supports **movie tracking only**. TV show tracking is planned for future updates.
+This guide covers install, tray integration, and media player setup on Linux.
 
 ## 📥 Linux Installation
 
@@ -13,65 +11,20 @@ Before installing, ensure you have the necessary system dependencies based on yo
 **For Ubuntu/Debian:**
 ```bash
 sudo apt install pipx python3-tk python3-pip python3-dev python3-setuptools wmctrl xdotool python3-gi python3-gi-cairo gir1.2-gtk-3.0 libgirepository1.0-dev libcairo2-dev pkg-config libnotify-bin python3-venv gir1.2-appindicator3-0.1 gnome-shell-extension-appindicator
-
-```mermaid
-flowchart TD
-   A[System Tray Icon] -->|Right-click| B[Context Menu]
-   B --> C[Status Information]
-   B --> D[Start/Pause Tracking]
-   B --> E[Scrobbling]
-   E --> E1[Retry Last Scrobble]
-   E --> E2[Sync Backlog Now]
-   E --> E3[Completion Threshold]
-   E --> E4[Open Local Watch History]
-   B --> E5[SIMKL]
-   E5 --> E5A[Authenticate/Re-auth]
-   E5 --> E5B[Open Website]
-   E5 --> E5C[Open Watch History]
-   B --> F[Maintenance]
-   F --> F1[Open Logs]
-   F --> F2[Open Data Folder]
-   F --> F3[Clear Backlog]
-   F --> F4[Clear Cache]
-   F --> F5[Clear Watch History]
-   F --> F6[Clear Logs]
-   F --> F7[Reset App Data]
-   B --> G[More]
-   G --> G1[Donate ❤️]
-   G --> G2[Check for Updates]
-   G --> G3[Help]
-   G --> G4[About]
-   B --> H[Exit]
-   style A fill:#4285f4,stroke:#333,stroke-width:2px,color:#fff
-   style D fill:#34a853,stroke:#333,stroke-width:2px,color:#fff
-   style F fill:#fbbc05,stroke:#333,stroke-width:2px,color:#fff
 ```
 
-- **Status information**: Current monitoring state and connection status
-- **Start/Pause Tracking**: Pause or resume tracking on demand
-- **Scrobbling**: Recovery and threshold controls
-  - **Retry Last Scrobble**: Clears cache for the active file and attempts to re-identify and scrobble it. Use when the wrong title/episode appears.
-  - **Sync Backlog Now**: Immediately processes any offline scrobbles waiting in backlog.
-  - **Completion Threshold**: Quickly switch between preset watch thresholds (65%, 80%, 90%) or define a custom percentage.
-  - **Open Local Watch History**: Open the local watch history viewer in your web browser.
-- **SIMKL**: Account and service management
-  - **Authenticate / Re-authenticate**: Launch the Simkl login flow if you are signing in for the first time or need to refresh an expired token.
-  - **Open Website**: Visit the SIMKL website.
-  - **Open Watch History**: View your watch history on SIMKL.
-- **Maintenance**: Logs, data, and cache management
-  - **Open Logs**: Jump straight to app diagnostics from the tray.
-  - **Open Data Folder**: Open the application data directory.
-  - **Clear Backlog**: Deletes pending offline scrobbles to stop repeated sync prompts.
-  - **Clear Cache**: Removes local media cache data while keeping logs and settings intact.
-  - **Clear Watch History**: Removes the local `watch_history.json` file and viewer data without touching your SIMKL account.
-  - **Clear Logs**: Truncates application and playback logs so you can capture a fresh session before debugging.
-  - **Reset App Data (Danger)**: Performs a full reset—use only when you want a clean re-authentication; the app exits afterward.
-- **More**: Additional utilities
-  - **Donate ❤️**: Support the project.
-  - **Check for Updates**: Check if a newer version is available.
-  - **Help**: Open help documentation.
-  - **About**: View application information.
-- **Exit**: Close the application
+```mermaid
+flowchart LR
+    A[Install Dependencies] --> B[Install simkl-mps]
+    B --> C[Run simkl-mps init]
+    C --> D[Start app]
+    D --> E[Authenticate with SIMKL]
+    E --> F[Configure media players]
+    F --> G[Track and sync]
+   style A fill:#4285f4,stroke:#333,stroke-width:2px,color:#fff
+    style D fill:#34a853,stroke:#333,stroke-width:2px,color:#fff
+    style G fill:#fbbc05,stroke:#333,stroke-width:2px,color:#fff
+```
 
 1. Install the application using pipx (recommended for better isolation):
    ```bash
@@ -153,7 +106,7 @@ If you're troubleshooting or want to see logs in real-time:
 simkl-mps tray
 ```
 
-This will run the application attached to the terminal, displaying all logs. Press Ctrl+C to exit.
+This runs the app in the current terminal and prints logs. Press Ctrl+C to exit.
 
 ## 🚀 Setting Up Autostart
 
@@ -208,7 +161,7 @@ To make simkl-mps start automatically when you log in:
 
 ## ⚙️ Media Player Configuration on Linux
 
-For the best movie tracking experience, configure your preferred media players:
+For the best tracking experience, configure your preferred media players:
 
 ### VLC Media Player
 
@@ -330,7 +283,7 @@ pip install --upgrade --user "simkl-mps[linux]"
 
 1. **Use MPV or VLC** for the most reliable tracking
 2. Enable **autostart** for convenience
-3. **Proper filenames** significantly improve movie identification:
+3. **Proper filenames** significantly improve media identification:
    - Best format: `Movie Title (Year).extension`
    - Example: `Inception (2010).mkv`
 4. For GNOME users, ensure the AppIndicator extension is enabled
@@ -354,7 +307,7 @@ pip install --upgrade --user "simkl-mps[linux]"
 | Python module errors | Ensure you installed with the Linux extras: `simkl-mps[linux]` |
 | VLC connection fails | Verify web interface is enabled and password is correct |
 | MPV not detected | Check if socket path in config is correct: `/tmp/mpvsocket` |
-| Movie not identified | Use clearer filename, check log for details |
+| Media not identified | Use clearer filename and check logs for matching details |
 
 ### Checking Logs on Linux
 
@@ -389,6 +342,6 @@ python3 -m simkl_mps.utils.linux_tray_diagnostics
 3. ✅ Configure your media players (critical step!)
 4. ✅ Fix any system tray issues using the guide above
 5. ✅ Set up autostart for convenience
-6. ✅ Use proper filenames for your movies
-7. ✅ Play a movie and verify it's detected and tracked
-8. ✅ Check your Simkl profile to confirm movies are marked as watched
+6. ✅ Use clear filenames for your media
+7. ✅ Play media and verify it is detected and tracked
+8. ✅ Check your SIMKL profile to confirm progress is synced

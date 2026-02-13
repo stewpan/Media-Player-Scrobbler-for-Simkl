@@ -1,8 +1,8 @@
 # 🎮 Usage Guide
 
-This guide explains how to use MPS for SIMKL to track your movies and sync with your SIMKL profile.
+This guide explains how to use MPS for SIMKL to track your media and sync with your SIMKL profile.
 
-- For installation, see the [Windows Guide](windows-guide.md), [Linux Guide](linux-guide.md), or [Mac Guide](mac-guide.md).
+- For installation, see the [Windows Guide](windows-guide.md), [Linux Guide](linux-guide.md), or [macOS Guide](mac-guide.md).
 - For player setup, see the [Media Players Guide](media-players.md).
 
 ## 🏁 Getting Started
@@ -10,7 +10,7 @@ This guide explains how to use MPS for SIMKL to track your movies and sync with 
 1. Install the app for your platform (see guides above).
 2. Authenticate with SIMKL on first run.
 3. **Configure your media players** (see [Media Players Guide](media-players.md)).
-4. Play movies in your configured player. The app tracks and syncs progress automatically.
+4. Play media in your configured player. The app tracks and syncs progress automatically.
 
 ## 🖥️ Windows (EXE)
 - Just install and launch. The app runs in the tray —no commands needed.
@@ -21,21 +21,20 @@ This guide explains how to use MPS for SIMKL to track your movies and sync with 
 - Start with `simkl-mps tray` or `simkl-mps start`.
 - Tray icon provides controls and status.
 
-## 🍏 Mac (pip, untested)
-- Install with pip (see [Mac Guide](mac-guide.md)).
+## 🍏 Mac (pip, experimental)
+- Install with pip (see [macOS Guide](mac-guide.md)).
 - Start with `simkl-mps tray` or `simkl-mps start`.
 - Tray icon provides controls and status.
 - 
-> Note: Mac support is experimental and untested.
+> Note: Mac support is experimental.
 
 ## 📺 TV Shows & Anime Tracking
 
-MPS for SIMKL now supports automatic tracking of TV shows and anime, in addition to movies.
+MPS for SIMKL supports movies, TV shows, and anime.
 
-- TV show and anime episodes are detected and scrobbled as you watch them in supported players.
-- All types (movies, shows, anime) appear in your local and online history.
-- For best results, use clear filenames (e.g. `Show.Name.S01E02.mkv` or `Anime.Title.12.mp4`).
-- See the [Media Players Guide](media-players.md) for player-specific setup.
+- Episode detection and scrobbling work in supported players.
+- All media types appear in local and online history.
+- Use clear filenames for best matching (e.g. `Show.Name.S01E02.mkv`, `Anime.Title.12.mp4`).
 
 ---
 
@@ -94,25 +93,9 @@ Right-click the tray icon to access the app menu with the following sections:
 
 **Exit:** Close the application
 
-## 🚦 Real-World Performance Timings
-
-**Online:**
-- Player Detection: ~4.2 sec
-- Movie Info Scrobble: ~3.7 sec
-- Notification: ~1.5 sec
-- Completion Detection Delay: ~5.2 sec
-- Completion Sync: ~13.3 sec
-- Completion Notification: ~1.5 sec
-
-**Offline:**
-- Movie Scrobble: ~1.2 sec
-- Notification: ~0.5 sec
-- Completion Save: ~3 sec
-- Completion Notification: ~0.5 sec
-
 ## 🛠️ Common Operations
 
-- **Tray:** Right-click for menu, status, and tools.
+- **Tray:** Right-click for menu, status, and controls.
 - **CLI:**
   ```bash
   simkl-mps start        # Start in background

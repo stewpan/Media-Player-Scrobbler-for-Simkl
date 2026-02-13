@@ -9,13 +9,19 @@ Settings can be customized via config files, environment variables, or command-l
 
 ### Config File Locations
 
-| Platform | Config File Location |
-|----------|----------------------|
+Use the tray menu for the most reliable path on any OS:
+
+- `Maintenance → Open Data Folder`
+
+Typical locations:
+
+| Platform | Typical Data Location |
+|----------|------------------------|
 | Windows  | `%USERPROFILE%\kavin\simkl-mps\` |
 | macOS    | `~/kavin/simkl-mps/` |
-| Linux    | `~/kavin/simkl-mps/` |
+| Linux    | `~/.local/share/kavin/simkl-mps/` |
 
-Note: The application currently uses a unified path scheme based on your home directory rather than OS-specific config folders (e.g. AppData, Library/Application Support, or .local/share). A migration utility transparently moves any older data from `kavinthangavel` to `kavin` on first run.
+If you are upgrading from older versions, migration handles older paths automatically.
 
 ### Example Settings
 
@@ -73,10 +79,10 @@ poetry publish
 ```mermaid
 graph TD
     A[Window Detection] -->|Active Windows| B[Media Monitor]
-    B -->|Window Info| C[Movie Scrobbler]
-    C -->|Movie Title| D[Title Parser]
+  B -->|Window Info| C[Media Scrobbler]
+  C -->|Media Title| D[Title Parser]
     D -->|Parsed Info| E[SIMKL API Client]
-    E -->|Movie ID & Metadata| F[Progress Tracker]
+  E -->|Media ID & Metadata| F[Progress Tracker]
     F -->|Position Updates| G{Completion Check}
     G -->|>80% Complete| H[Mark as Watched]
     G -->|<80% Complete| F

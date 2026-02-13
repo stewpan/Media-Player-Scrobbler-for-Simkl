@@ -1,8 +1,6 @@
 # 🪟 Windows Installation & Configuration Guide
 
-This comprehensive guide provides detailed instructions specifically for Windows users of Media Player Scrobbler for Simkl, focusing on the Windows installer, system integration, and media player configuration.
-
-> **Important Note**: Currently, the application supports **movie tracking only**. TV show tracking is planned for future updates.
+This guide covers install, setup, and daily usage for Windows users.
 
 ## 📥 Windows Installer
 
@@ -19,7 +17,7 @@ flowchart LR
     E --> F[Configure Settings]
     F --> G[Complete Installation]
     G --> H[Launch Application]
-    H --> I[Authenticate with Simkl]
+    H --> I[Authenticate with SIMKL]
     I --> J[Configure Media Players]
     style A fill:#4285f4,stroke:#333,stroke-width:2px,color:#fff
     style G fill:#34a853,stroke:#333,stroke-width:2px,color:#fff
@@ -56,13 +54,13 @@ flowchart LR
 
 After installation completes:
 1. The application launches automatically
-2. Authenticate with your Simkl account when prompted
+2. Authenticate with your SIMKL account when prompted
 3. A system tray icon appears in the notification area
 4. **CRITICAL STEP**: Configure your media players for optimal tracking (see below)
 
 ## ⚙️ Media Player Configuration on Windows (recommended)
 
-For the best movie tracking experience, configure your preferred media players:
+For the best tracking experience, configure your preferred media players:
 [Media Players](media-players.md)
 
 
@@ -113,7 +111,7 @@ flowchart TD
   - **Completion Threshold**: Quickly switch between preset watch thresholds (65%, 80%, 90%) or define a custom percentage.
   - **Open Local Watch History**: Open the local watch history viewer in your web browser.
 - **SIMKL**: Account and service management
-  - **Authenticate / Re-authenticate**: Launch the Simkl login flow if you are signing in for the first time or need to refresh an expired token.
+  - **Authenticate / Re-authenticate**: Launch the SIMKL login flow if you are signing in for the first time or need to refresh an expired token.
   - **Open Website**: Visit the SIMKL website.
   - **Open Watch History**: View your watch history on SIMKL.
 - **Maintenance**: Logs, data, and cache management
@@ -133,11 +131,12 @@ flowchart TD
 
 ### Windows Auto-Start
 
-If you selected auto-start during installation, the application will launch automatically when you log in to Windows. To change this setting:
+If you selected auto-start during installation, the app launches when you sign in.
 
-1. Right-click the system tray icon
-2. Select **Settings**
-3. Toggle the **Launch on startup** option
+To change startup behavior later:
+
+1. Open **Task Manager → Startup apps** (or **Settings → Apps → Startup**)
+2. Enable or disable **MPS for SIMKL**
 
 ### Windows-Specific File Locations
 
@@ -167,16 +166,9 @@ The Windows installer version includes an automatic update system:
 2. Enable **auto-start** for convenience
 3. Configure **VLC** or **MCP-HC** for the most accurate tracking
 4. Use the **system tray menu** for quick access to functions
-5. **Proper filenames** significantly improve movie identification:
+5. **Proper filenames** significantly improve media identification:
    - Best format: `Movie Title (Year).extension`
    - Example: `Inception (2010).mkv`
-
-### Resource Usage
-
-- **Memory**: 30-60 MB (typical)
-- **CPU**: Minimal (1-2% during active tracking)
-- **Disk**: ~20 MB for installation + small database (~1 MB)
-- **Network**: Only when syncing with Simkl
 
 ## 🔍 Windows Troubleshooting
 
@@ -219,6 +211,6 @@ To remove the application from your Windows system:
 1. ✅ Install using the Windows installer
 2. ✅ Enable auto-start for convenience
 3. ✅ Configure your media players (critical step!)
-4. ✅ Use proper filenames for your movies
-5. ✅ Play a movie and verify it's detected and tracked
-6. ✅ Check your Simkl profile to confirm movies are marked as watched
+4. ✅ Use clear filenames for your media
+5. ✅ Play media and verify it is detected and tracked
+6. ✅ Check your SIMKL profile to confirm progress is synced

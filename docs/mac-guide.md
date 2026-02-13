@@ -1,6 +1,6 @@
-# 🍏 Mac Guide (Experimental)
+# 🍏 macOS Guide (Experimental)
 
-> **Note:** Mac support is experimental and not fully tested. Some features may not work as expected.
+> macOS support is experimental. Some features may be limited.
 
 ## 🏁 Installation
 
@@ -28,14 +28,14 @@ pipx install "simkl-mps[macos]"
 - **Critical:** Configure your media players for accurate tracking.
 - See the [Media Players Guide](media-players.md) for setup steps for VLC, MPV, and others.
 
-## 🛠️ Tray & Usage
+## 🛠️ Tray Usage
 - Use the tray icon in the menu bar for status and controls.
-- No command line needed for daily use after setup.
+- After setup, daily usage is tray-first (CLI is optional).
 
 ## 🐞 Troubleshooting
 - Grant accessibility and notification permissions in System Preferences if tray or notifications do not work.
 - For issues, see the [Troubleshooting Guide](troubleshooting.md).
 
 ## ⚠️ Limitations
-- Some features may not be fully supported on macOS.
-- If you encounter issues, please report them on GitHub.
+- Some features are still in progress on macOS.
+- If you hit issues, please report them on GitHub with logs.

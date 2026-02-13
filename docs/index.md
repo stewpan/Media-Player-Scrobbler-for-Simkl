@@ -7,13 +7,13 @@
 
 ## What is MPS for SIMKL?
 
-MPS for SIMKL (Media Player Scrobbler) is a cross-platform app that automatically tracks your movie watching in popular media players and syncs your progress to your SIMKL account. It runs in the background or system tray, requires minimal setup, and supports Windows, macOS (experimental), and Linux.
+MPS for SIMKL (Media Player Scrobbler) is a cross-platform app that tracks what you watch in supported media players and syncs progress to SIMKL. It supports movies, TV shows, and anime. It runs in the background/tray and works on Windows, Linux, and macOS (experimental).
 
 ## ⚡ Quick Start
 
 - **Windows:** Use the [Windows Guide](windows-guide.md) (EXE installer, tray app, no commands needed).
 - **Linux:** Use the [Linux Guide](linux-guide.md) (pipx recommended, tray app, setup command needed).
-- **macOS:** Use the [Mac Guide](mac-guide.md) (pip install, tray app, setup command needed, experimental/untested).
+- **macOS:** Use the [macOS Guide](mac-guide.md) (pip install, tray app, setup command needed, experimental).
 
 After installation, authenticate with SIMKL and **configure your media players** using the [Media Players Guide](media-players.md) (this step is critical for accurate tracking).
 
@@ -21,10 +21,10 @@ After installation, authenticate with SIMKL and **configure your media players**
 
 - [Windows Guide](windows-guide.md)
 - [Linux Guide](linux-guide.md)
-- [Mac Guide](mac-guide.md)
+- [macOS Guide](mac-guide.md)
 - [Supported Media Players](media-players.md)
 - [Usage Guide](usage.md)
-- [Local Watch History](watch-history.md) <!-- NEW -->
+- [Local Watch History](watch-history.md)
 - [Advanced & Developer Guide](configuration.md)
 - [Troubleshooting Guide](troubleshooting.md)
 - [Todo List](todo.md)
@@ -48,22 +48,6 @@ graph TD
 3. **Tracking:** Monitors playback position (requires player configuration via [Media Players Guide](media-players.md)).
 4. **Completion:** Marks as watched when the configured threshold (default 80%) is reached.
 5. **Sync:** Updates your SIMKL profile automatically.
-
-## 🚦 Performance Notes
-
-**Online:**
-- Player Detection: ~4.2 sec
-- Movie Info Scrobble: ~3.7 sec
-- Notification: ~1.5 sec
-- Completion Detection Delay: ~5.2 sec
-- Completion Sync: ~13.3 sec
-- Completion Notification: ~1.5 sec
-
-**Offline:**
-- Movie Scrobble: ~1.2 sec
-- Notification: ~0.5 sec
-- Completion Save: ~3 sec
-- Completion Notification: ~0.5 sec
 
 ## 📝 License
 

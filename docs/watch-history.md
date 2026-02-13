@@ -34,7 +34,7 @@ MPS for SIMKL now supports **automatic tracking of TV shows and anime** in addit
 
 ### How It Works
 - The app parses filenames and player info to detect if a file is a movie, TV show, or anime.
-- For TV/anime, it extracts season/episode and matches to Simkl's database.
+- For TV/anime, it extracts season/episode and matches against the SIMKL database.
 - Progress is tracked and synced just like for movies.
 
 ### Notes
@@ -64,7 +64,7 @@ The local watch history system is managed by the `WatchHistoryManager` (see `sim
 
 ### File Locations
 - **History Data:**
-  - `watch_history.json` is stored in your data directory (e.g. `~/.kavin/simkl-mps/` or click open config dir in tray app .
+  - `watch_history.json` is stored in your app data directory (open from tray: `Maintenance → Open Data Folder`).
 - **Viewer:**
   - The HTML/JS viewer is auto-copied to `~/kavin/simkl-mps/watch-history-viewer/`.
   - The viewer loads `data.js` (auto-generated from your history).

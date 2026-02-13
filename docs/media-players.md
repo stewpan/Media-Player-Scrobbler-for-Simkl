@@ -1,10 +1,10 @@
 # 🎥 Supported Media Players
 
-This guide provides comprehensive information about compatible media players and detailed configuration instructions to ensure optimal movie tracking performance.
+This guide shows supported media players and the simple setup needed for accurate tracking.
 
 ## ⚠️ Important: Media Player Configuration
 
-**Media player configuration is a critical step for accurate movie tracking.** While the application can work with basic window title detection, configuring your media players for advanced tracking significantly improves accuracy and reliability.
+**Media player configuration is critical for accurate tracking.** Basic window-title detection works, but player integration is much more reliable.
 
 ```mermaid
 graph TD
@@ -25,7 +25,7 @@ Follow the platform-specific instructions below to set up your preferred media p
 | Player                | Windows | macOS | Linux | Advanced Tracking | Configuration Difficulty |
 |-----------------------|:-------:|:-----:|:-----:|:----------------:|:----------------------:|
 | VLC                   | ✅      | ✅    | ✅    | ✅              | Easy                   |
-| MPV                   | ✅      | ✅    | ✅    | ✅              | Moderate               |
+| MPV                   | ✅      | ✅    | ✅    | ✅              | Easy                   |
 | MPC-HC/BE             | ✅      | ❌    | ❌    | ✅              | Easy                   |
 | MPC-QT                | ✅      | ❌    | ✅    | ✅              | Easy                   |
 | PotPlayer             | ✅      | ❌    | ❌    | ✅              | None (Auto-detected)   |
@@ -33,7 +33,7 @@ Follow the platform-specific instructions below to set up your preferred media p
 
 *MPV Wrappers: Celluloid, MPV.net, SMPlayer, IINA, Haruna, etc.
 
-> **Note**: For **advanced tracking** with accurate playback position and duration, you must use one of the supported players (VLC, MPV, MPC-HC/BE, MPC-QT, or MPV wrappers) with proper configuration.
+> **Note**: For **advanced tracking** with accurate playback position and duration, you must use one of the supported players (VLC, MPC-HC/BE) with proper configuration.
 
 ---
 
@@ -54,11 +54,11 @@ Follow the platform-specific instructions below to set up your preferred media p
 10. Visit http://localhost:8080/
 11. Enter Your Password (hint: simkl) 
 
-> For Detailed Step by Step Config [Config with Images](https://github.com/azrafe7/vlc4youtube/blob/55946aaea09375cfa4dc0dbae0428ad13eb9e046/instructions/how-to-enable-vlc-web-interface.md) - Make Sure to set a Password
+> Optional visual walkthrough: [Enable VLC Web Interface](https://github.com/azrafe7/vlc4youtube/blob/55946aaea09375cfa4dc0dbae0428ad13eb9e046/instructions/how-to-enable-vlc-web-interface.md)
 
 **Verification:**
 - The scrobbler will automatically connect to VLC on port 8080 (or your custom port)
-- Play a movie in VLC to test - you should see accurate position tracking
+- Play media in VLC to test. You should see accurate position tracking.
 
 ### MPV Media Player
 
@@ -76,7 +76,7 @@ Follow the platform-specific instructions below to set up your preferred media p
 5. Save the file and restart MPV
 
 **Verification:**
-- Play a movie in MPV
+- Play media in MPV
 - The scrobbler will connect to the pipe socket
 - Position data should be accurately tracked
 
@@ -97,7 +97,7 @@ Follow the platform-specific instructions below to set up your preferred media p
 3. Save the file and restart the player
 
 **Verification:**
-- Play a movie in your MPV wrapper player
+- Play media in your MPV wrapper player
 - The scrobbler should connect and show accurate position data
 
 ### PotPlayer (Recommended - Zero Configuration)
@@ -116,9 +116,9 @@ Follow the platform-specific instructions below to set up your preferred media p
 - All recent versions with standard Windows messaging support
 
 **Verification:**
-- Play a movie in PotPlayer
+- Play media in PotPlayer
 - The scrobbler automatically connects (no web interface needed)
-- You should see accurate position tracking and movie detection
+- You should see accurate position tracking and media detection
 - Check logs for "Successfully connected to PotPlayer via Windows messaging"
 
 ### MPC-HC/BE (Media Player Classic)
@@ -131,7 +131,7 @@ Follow the platform-specific instructions below to set up your preferred media p
 5. Click **OK** and restart MPC
 
 **Verification:**
-- Play a movie in MPC
+- Play media in MPC
 - The scrobbler will connect to the web interface
 - Position data should be accurately tracked
 
@@ -147,7 +147,7 @@ Follow the platform-specific instructions below to set up your preferred media p
 7. Click **OK** and restart MPC-QT
 
 **Verification:**
-- Play a movie in MPC-QT
+- Play media in MPC-QT
 - The scrobbler will connect to the web interface
 - Position data should be accurately tracked
 
@@ -172,7 +172,7 @@ SMPlayer is a versatile media player that can use MPV as its backend.
 6. Click **OK** and restart SMPlayer
 
 **Verification:**
-- Play a movie in SMPlayer
+- Play media in SMPlayer
 - The scrobbler should connect to the MPV backend
 - Position data should be accurately tracked
 
@@ -195,7 +195,7 @@ Syncplay allows synchronized playback across multiple users and can use MPV as i
 4. Click **Save** and restart Syncplay
 
 **Verification:**
-- Start a Syncplay session and play a movie
+- Start a Syncplay session and play media
 - The scrobbler should connect to the MPV backend
 - Position data should be accurately tracked
 
@@ -236,7 +236,7 @@ Follow the same configuration steps as shown in the Windows VLC section above.
 3. Save the file and restart IINA
 
 **Verification:**
-- Play a movie in your MPV wrapper player
+- Play media in your MPV wrapper player
 - The scrobbler should connect and show accurate position data
 
 ### QuickTime
@@ -307,7 +307,7 @@ graph LR
 With advanced tracking (properly configured players):
 - Exact playback position is known
 - Precise tracking of watch progress
-- Accurate determination of when a movie is completed
+- Accurate determination of completion
 - Better handling of pauses and skips
 
 
@@ -315,7 +315,7 @@ With advanced tracking (properly configured players):
 
 ## 🏷️ Filename Best Practices
 
-For optimal movie identification, follow these naming conventions:
+For optimal media identification, follow these naming conventions:
 
 ```mermaid
 graph TD
@@ -360,11 +360,11 @@ graph TD
 ### Testing Player Configuration
 
 1. Configure your media player according to the instructions
-2. Start the Media Player Scrobbler for Simkl with debug logging:
+2. Start Media Player Scrobbler for SIMKL with debug logging:
    ```bash
    simkl-mps tray --debug
    ```
-3. Play a movie in your configured media player
+3. Play media in your configured player
 4. Check the logs for connection messages and position data
 5. If successful, position data should appear in the logs
 

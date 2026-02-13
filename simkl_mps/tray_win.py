@@ -10,13 +10,14 @@ import threading
 import logging
 import webbrowser
 import subprocess # Added for running updater script
+import queue
 from pathlib import Path
 from PIL import Image # Keep PIL.Image for loading
 import pystray
 from plyer import notification
 import ctypes # Added for native Windows dialogs
 import tkinter as tk
-from tkinter import simpledialog, messagebox # Keep messagebox for about/help fallbacks
+from tkinter import simpledialog, messagebox
 
 # Import Base Class and common functions/constants
 from simkl_mps.tray_base import TrayAppBase, get_simkl_scrobbler
@@ -33,7 +34,11 @@ class TrayAppWin(TrayAppBase):
         super().__init__() # Call base class constructor
         self.tray_icon = None # Initialize tray_icon attribute
         self._update_check_running = False # Initialize update check flag
+        self._tk_queue: "queue.Queue[tuple[callable, queue.Queue]] | None" = None
+        self._tk_thread: threading.Thread | None = None
+        self._tk_root: tk.Tk | None = None
         self._setup_auto_update_if_needed() # Run platform-specific setup
+        self._init_tk_thread()
         self.setup_icon()
 
     def setup_icon(self):
@@ -117,70 +122,102 @@ class TrayAppWin(TrayAppBase):
     # open_config_dir is now in base class
 
     def show_about(self, _=None):
-        """Show application information using Tkinter"""
+        """Show application information using Tkinter dialog."""
         try:
-            # Try multiple ways to get the version information
-            version = "Unknown"
-            
-            # 1. Try to get from pkg_resources
-            try:
-                import pkg_resources
-                version = pkg_resources.get_distribution("simkl-mps").version
-            except (pkg_resources.DistributionNotFound, ImportError):
-                # 2. Try to get from registry (Windows) - Removed version.txt check
-                if version == "Unknown" and sys.platform == 'win32':
-                    try:
-                        import winreg
-                        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\kavin\Media Player Scrobbler for SIMKL")
-                        version = winreg.QueryValueEx(key, "Version")[0]
-                        winreg.CloseKey(key)
-                    except:
-                        pass
-            
-            # Get license information
-            license_name = "GNU GPL v3"
-            try:
-                if sys.platform == 'win32':
-                    import winreg
-                    key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\kavin\Media Player Scrobbler for SIMKL")
-                    license_name = winreg.QueryValueEx(key, "License")[0]
-                    winreg.CloseKey(key)
-            except:
-                pass
-            
-            # Build the about text with the version and license
-            about_text = f"""Media Player Scrobbler for SIMKL
-Version: {version}
-Author: kavin
-License: {license_name}
-
-Automatically track and scrobble your media to SIMKL."""
-
-            # Use tkinter on Windows with proper event handling
-            def show_dialog():
-                dialog_root = tk.Tk()
-                dialog_root.withdraw()
-                dialog_root.attributes("-topmost", True)  # Keep dialog on top
-
-                # Add protocol handler for window close button
-                dialog_root.protocol("WM_DELETE_WINDOW", dialog_root.destroy)
-
-                # Show the dialog and wait for it to complete
-                messagebox.showinfo("About", about_text, parent=dialog_root)
-
-                # Clean up
-                dialog_root.destroy()
-
-            # Run in a separate thread to avoid blocking the main thread
-            threading.Thread(target=show_dialog, daemon=True).start()
+            about_text = self._build_about_text()
+            self._show_info_dialog("About MPS for SIMKL", about_text)
 
         except Exception as e:
             logger.error(f"Error showing about dialog: {e}")
             self.show_notification("About", "Media Player Scrobbler for SIMKL")
         return 0
 
+    def _init_tk_thread(self):
+        """Start a dedicated Tkinter thread to safely run dialogs."""
+        if self._tk_thread and self._tk_thread.is_alive():
+            return
+
+        self._tk_queue = queue.Queue()
+        ready_event = threading.Event()
+
+        def _tk_mainloop():
+            try:
+                root = tk.Tk()
+                root.withdraw()
+                root.attributes("-topmost", True)
+                self._tk_root = root
+                ready_event.set()
+
+                def _poll_queue():
+                    if not self._tk_queue:
+                        return
+                    try:
+                        while True:
+                            func, result_queue = self._tk_queue.get_nowait()
+                            try:
+                                result = func()
+                                result_queue.put((True, result))
+                            except Exception as exc:
+                                result_queue.put((False, exc))
+                    except queue.Empty:
+                        pass
+                    root.after(50, _poll_queue)
+
+                root.after(0, _poll_queue)
+                root.mainloop()
+            except Exception as exc:
+                logger.error(f"Tkinter dialog thread failed: {exc}", exc_info=True)
+            finally:
+                self._tk_root = None
+
+        self._tk_thread = threading.Thread(target=_tk_mainloop, daemon=True)
+        self._tk_thread.start()
+        ready_event.wait(timeout=5)
+
+    def _run_on_tk_thread(self, func, default=None):
+        """Execute a callable on the Tk thread and return its result."""
+        if not self._tk_queue or not self._tk_thread or not self._tk_thread.is_alive():
+            self._init_tk_thread()
+
+        if not self._tk_queue:
+            return default
+
+        result_queue: "queue.Queue[tuple[bool, object]]" = queue.Queue()
+        self._tk_queue.put((func, result_queue))
+
+        try:
+            ok, result = result_queue.get(timeout=30)
+            if ok:
+                return result
+            raise result
+        except Exception as exc:
+            logger.error(f"Tkinter dialog execution failed: {exc}", exc_info=True)
+            return default
+
+    def _show_info_dialog(self, title, message):
+        """Windows override: show informational dialog via Tk thread."""
+        def _dialog():
+            parent = self._tk_root
+            if parent:
+                parent.lift()
+                parent.focus_force()
+            return messagebox.showinfo(str(title), str(message), parent=parent)
+
+        self._run_on_tk_thread(_dialog)
+
+    def _show_confirmation_dialog(self, title, message):
+        """Windows override: show Yes/No confirmation via Tk thread."""
+        def _dialog():
+            parent = self._tk_root
+            if parent:
+                parent.lift()
+                parent.focus_force()
+            return messagebox.askyesno(str(title), str(message), parent=parent)
+
+        return bool(self._run_on_tk_thread(_dialog, default=False))
+
     def show_help(self, _=None):
-        """Show help information using Tkinter as fallback"""
+        """Show help information and fallback to native Windows dialog."""
         try:
             # Open documentation or show help dialog
             help_url = "https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/wiki"
@@ -202,24 +239,8 @@ Tips:
 - Make sure you've authorized with SIMKL
 - The app runs in your system tray
 - Check logs if you encounter problems"""
-            
-            # Show help text in a Tkinter dialog as a fallback
-            def show_dialog():
-                dialog_root = tk.Tk()
-                dialog_root.withdraw()
-                dialog_root.attributes("-topmost", True)
 
-                # Add protocol handler for window close button
-                dialog_root.protocol("WM_DELETE_WINDOW", dialog_root.destroy)
-
-                # Show the dialog and wait for it to complete
-                messagebox.showinfo("Help", help_text, parent=dialog_root)
-
-                # Clean up
-                dialog_root.destroy()
-
-            # Run in a separate thread to avoid blocking the main thread
-            threading.Thread(target=show_dialog, daemon=True).start()
+            self._show_info_dialog("Help", help_text)
         return 0
 
     # open_simkl is now in base class
@@ -239,25 +260,7 @@ Tips:
         logger.info("Checking for updates...")
         self.show_notification("Checking for Updates", "Looking for updates to MPS for SIMKL...")
 
-        # Get current version first
-        current_version = "Unknown"
-        try:
-            # 1. Try to get from pkg_resources
-            try:
-                import pkg_resources
-                current_version = pkg_resources.get_distribution("simkl-mps").version
-            except (pkg_resources.DistributionNotFound, ImportError):
-                # 2. Try to get from registry (Windows)
-                if sys.platform == 'win32':
-                    try:
-                        import winreg
-                        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\kavin\Media Player Scrobbler for SIMKL")
-                        current_version = winreg.QueryValueEx(key, "Version")[0]
-                        winreg.CloseKey(key)
-                    except:
-                        pass
-        except Exception as e:
-            logger.error(f"Error getting current version: {e}")
+        current_version = self._get_app_version()
 
         system = sys.platform.lower()
         updater_script = 'updater.ps1' if system == 'win32' else 'updater.sh' # Adapt for other OS if needed
@@ -480,36 +483,22 @@ Tips:
     # --- Watch Threshold Implementation ---
 
     def _ask_custom_threshold_dialog(self, current_threshold: int) -> int | None:
-        """Implementation of the abstract method to ask for threshold using Tkinter."""
-        dialog_root = None
-        try:
-            # We need a hidden root window for the dialog to work correctly,
-            # especially when run without a pre-existing Tkinter main loop.
-            dialog_root = tk.Tk()
-            dialog_root.withdraw() # Hide the root window
-            dialog_root.attributes("-topmost", True) # Keep dialog on top
-            dialog_root.focus_force() # Try to bring focus
-
-            threshold = simpledialog.askinteger(
+        """Windows implementation to ask for threshold using Tkinter dialog."""
+        def _dialog():
+            parent = self._tk_root
+            if parent:
+                parent.lift()
+                parent.focus_force()
+            return simpledialog.askinteger(
                 "Set Watch Threshold",
                 f"Enter watch completion threshold (%):\n(Current: {current_threshold}%)",
-                parent=dialog_root, # Associate with hidden root
+                parent=parent,
                 minvalue=1,
                 maxvalue=100,
                 initialvalue=current_threshold
             )
-            return threshold # Returns the integer or None if cancelled
-        except (tk.TclError, ValueError, Exception) as e:
-            logger.error(f"Error showing Tkinter threshold dialog: {e}", exc_info=True)
-            return None # Return None on any error
-        finally:
-            # Ensure the hidden root window is destroyed after the dialog closes
-            if dialog_root:
-                try:
-                    # Schedule the destroy call in the Tkinter event loop
-                    dialog_root.after(0, dialog_root.destroy)
-                except Exception as e:
-                    logger.debug(f"Error destroying Tkinter root (might be already closed): {e}")
+
+        return self._run_on_tk_thread(_dialog, default=None)
 
     # _set_preset_threshold is now in base class
     # set_custom_watch_threshold is now in base class

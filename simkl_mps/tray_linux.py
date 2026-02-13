@@ -547,22 +547,7 @@ class TrayAppLinux(TrayAppBase):
     def show_about(self, _=None):
         """Show about dialog with Linux-specific implementation"""
         try:
-            # Try to get version information
-            version = "Unknown"
-            
-            try:
-                import pkg_resources
-                version = pkg_resources.get_distribution("simkl-mps").version
-            except:
-                pass
-                
-            # Build the about text
-            about_text = f"""Media Player Scrobbler for SIMKL
-Version: {version}
-Author: kavin
-License: GNU GPL v3
-
-Automatically track and scrobble your media to SIMKL."""
+            about_text = self._build_about_text()
 
             # Try using zenity for a nicer dialog
             try:
