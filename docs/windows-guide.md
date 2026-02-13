@@ -177,7 +177,7 @@ The Windows installer version includes an automatic update system:
 For advanced troubleshooting:
 1. Open Command Prompt or PowerShell
 2. Navigate to the installation directory
-3. Run: `simkl-mps.exe --debug`
+3. Run: `simkl-mps tray --debug`
 
 ## 📲 Uninstallation
 
