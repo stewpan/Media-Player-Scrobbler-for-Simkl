@@ -153,7 +153,7 @@ class Monitor:
                             #     else:
                             #         logger.debug(f"Skipping repeated search for '{title}' (cooldown: {int(self.offline_search_cooldown - time_since_last_attempt)}s remaining)")
                         else:
-                            logger.warning(f"No scrobble info returned from process_window for {process_name}")
+                            logger.debug(f"No scrobble info returned from process_window for {process_name}")
                         # Update the persistent state *after* processing and logging checks
                         self.last_known_player_process = process_name
                         self.last_known_filepath = filepath

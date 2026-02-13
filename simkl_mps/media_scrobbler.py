@@ -141,6 +141,11 @@ class MediaScrobbler:
         self._deny_dirs = get_setting('deny_dirs', [])
         self._dir_filter_last_refresh = current_time
 
+    def signal_dir_filters_update(self):
+        """Signal that directory filters have been updated and should be refreshed on the next check."""
+        self._dir_filter_last_refresh = 0
+        logger.info("Received signal to refresh directory filters.")
+
     def set_notification_callback(self, callback):
         """Set a callback function for notifications"""
         self.notification_callback = callback
@@ -339,17 +344,19 @@ class MediaScrobbler:
                 else:
                     logger.debug(f"{player_name} integration couldn't get position/duration.")
             except requests.RequestException as e:
+                # Connection errors during player shutdown are expected (debug level)
+                logger.debug(f"Could not connect to {process_name} web interface. Error: {e}")
+                # Only log warnings and notify for persistent connection issues (throttled to once per 5 minutes)
                 now = time.time()
                 last_log_time = self._last_connection_error_log.get(process_name, 0)
-                if now - last_log_time > 60: # Log connection errors at most once per minute per player
-                    logger.warning(f"Could not connect to {process_name} web interface. Error: {e}")
+                if now - last_log_time > 300:  # Notify at most once per 5 minutes per player
+                    logger.warning(f"Persistent connection issue with {process_name} web interface. {str(e)[:100]}")
                     self._last_connection_error_log[process_name] = now
                     # Only notify if currently tracking a file
                     if self.currently_tracking:
                         player_type = self._get_player_type(process_name_lower)
                         if player_type:
                             config_instructions = self._get_player_config_instructions(player_type)
-                            logger.info(f"[DEBUG] Sending notification for {player_type} connection error: {config_instructions}")
                             self._send_notification(
                                 f"{player_type} Connection Error",
                                 f"Could not connect to {player_type}. {config_instructions}",
@@ -379,10 +386,13 @@ class MediaScrobbler:
                     logger.debug(f"Retrieved filepath from {player_name}: {filepath}")
                     return filepath
             except requests.RequestException as e:
+                # Connection errors during player shutdown are expected (debug level)
+                logger.debug(f"Could not connect to {process_name} web interface for filepath. Error: {e}")
+                # Only log warnings and notify for persistent connection issues (throttled to once per 5 minutes)
                 now = time.time()
                 last_log_time = self._last_connection_error_log.get(process_name, 0)
-                if now - last_log_time > 60: # Log and notify at most once per minute per player
-                    logger.warning(f"Could not connect to {process_name} web interface for filepath. Error: {e}")
+                if now - last_log_time > 300:  # Notify at most once per 5 minutes per player
+                    logger.warning(f"Persistent connection issue with {process_name} web interface. {str(e)[:100]}")
                     self._last_connection_error_log[process_name] = now
                     # Send notification about web interface connection error
                     player_type = self._get_player_type(process_name_lower)

@@ -287,16 +287,16 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
         """
         Persist filter settings and signal the running scrobbler to refresh its configuration.
         
-        This respects encapsulation by only triggering a refresh of the scrobbler's
-        internal configuration rather than directly modifying its private attributes.
-        The scrobbler will naturally reload from settings on the next filter check.
+        This respects encapsulation by using the scrobbler's public signal_dir_filters_update()
+        method rather than directly modifying its private attributes.
         """
         try:
             set_setting(key, entries)
             media_scrobbler = self._get_media_scrobbler()
             if media_scrobbler is not None:
-                if hasattr(media_scrobbler, "_dir_filter_last_refresh"):
-                    media_scrobbler._dir_filter_last_refresh = 0
+                # Signal the scrobbler to refresh configuration via public method
+                if hasattr(media_scrobbler, "signal_dir_filters_update"):
+                    media_scrobbler.signal_dir_filters_update()
             label = "Allow" if key == "allow_dirs" else "Deny"
             self.show_notification("Settings Updated", f"{label} directories updated.")
         except Exception as exc:
