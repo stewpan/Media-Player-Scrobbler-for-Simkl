@@ -185,13 +185,21 @@ class AppIndicatorTray:
             # --- Threshold Submenu (nested under Scrobbling) ---
             threshold_item = gtk_module.MenuItem(label="Completion Threshold")
             threshold_submenu = gtk_module.Menu()
-            threshold_group = [] # For radio buttons
+            threshold_group = None # Will hold the first RadioMenuItem for grouping
 
             current_threshold = get_setting('watch_completion_threshold', DEFAULT_THRESHOLD)
 
             def create_preset_item(value, label):
-                item = gtk_module.CheckMenuItem(label=label, group=threshold_group)
-                threshold_group.append(item) # Add to group for radio behavior
+                nonlocal threshold_group
+                # Use RadioMenuItem instead of CheckMenuItem for proper radio behavior
+                if threshold_group is None:
+                    # First item in the group
+                    item = gtk_module.RadioMenuItem(label=label)
+                    threshold_group = item
+                else:
+                    # Subsequent items join the group
+                    item = gtk_module.RadioMenuItem(group=threshold_group, label=label)
+
                 item.set_active(current_threshold == value)
                 item.connect("activate", lambda w, v=value: self._wrap_callback(lambda: self.app._set_preset_threshold(v))())
                 return item
