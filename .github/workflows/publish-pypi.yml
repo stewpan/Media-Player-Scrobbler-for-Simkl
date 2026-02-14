@@ -88,51 +88,16 @@ jobs:
             exit 1
           fi
 
-            # Inject only runtime assignment lines as valid Python string literals.
-            # Keep placeholder constants unchanged so placeholder detection remains correct.
-          python - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-          import re
+          # Inject Client ID
+          echo "Injecting SIMKL_CLIENT_ID into credentials.py"
+          # Use a different delimiter for sed in case the secret contains slashes
+          sed -i "s|SIMKL_CLIENT_ID_PLACEHOLDER|${SIMKL_CLIENT_ID}|g" simkl_mps/credentials.py
 
-          path = Path("simkl_mps/credentials.py")
-          text = path.read_text(encoding="utf-8")
-
-          id_literal = json.dumps(os.environ["SIMKL_CLIENT_ID"])
-          secret_literal = json.dumps(os.environ["SIMKL_CLIENT_SECRET"])
-
-          text, id_count = re.subn(
-            r'^SIMKL_CLIENT_ID\s*=\s*.*$',
-            f'SIMKL_CLIENT_ID = {id_literal}',
-            text,
-            count=1,
-            flags=re.MULTILINE,
-          )
-          text, secret_count = re.subn(
-            r'^SIMKL_CLIENT_SECRET\s*=\s*.*$',
-            f'SIMKL_CLIENT_SECRET = {secret_literal}',
-            text,
-            count=1,
-            flags=re.MULTILINE,
-          )
-
-          if id_count != 1 or secret_count != 1:
-            raise RuntimeError("Failed to inject SIMKL credentials into runtime assignment lines")
-
-          path.write_text(text, encoding="utf-8")
-          print("✓ Credentials injected successfully")
-          PY
+          # Inject Client Secret
+          echo "Injecting SIMKL_CLIENT_SECRET into credentials.py"
+          sed -i "s|SIMKL_CLIENT_SECRET_PLACEHOLDER|${SIMKL_CLIENT_SECRET}|g" simkl_mps/credentials.py
 
           echo "✅ Credentials successfully injected into simkl_mps/credentials.py"
-
-      - name: Verify credential placeholders are gone
-        run: |
-          if grep -qE '^SIMKL_CLIENT_ID\s*=\s*CLIENT_ID_PLACEHOLDER$|^SIMKL_CLIENT_SECRET\s*=\s*CLIENT_SECRET_PLACEHOLDER$' simkl_mps/credentials.py; then
-            echo "::error::Runtime credential assignment still points to placeholders"
-            exit 1
-          fi
-          echo "✅ Runtime credential assignments injected successfully"
 
       - name: Build package
         run: |
