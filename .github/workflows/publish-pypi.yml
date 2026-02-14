@@ -1,13 +1,6 @@
 name: Publish to PyPI
 
 on:
-  push:
-    branches:
-      - release/2.3.2-combined
-    paths:
-      - '.github/workflows/publish-pypi.yml'
-      - 'pyproject.toml'
-      - 'simkl_mps/**'
   workflow_call:
     inputs:
       version:
@@ -31,10 +24,10 @@ on:
         required: true
         type: string
       publish:
-        description: 'If false, only build and upload artifacts (no PyPI publish)'
+        description: 'PyPI publish'
         required: true
         type: boolean
-        default: false
+        default: true
 
 jobs:
   publish:
@@ -64,13 +57,7 @@ jobs:
 
 
       - name: Set version in pyproject.toml
-        if: ${{ github.event_name != 'push' }}
         run: poetry version ${{ inputs.version }}
-
-      - name: Branch publish mode info
-        if: ${{ github.event_name == 'push' }}
-        run: |
-          echo "Push trigger on release/2.3.2-combined detected. Using version from repository files."
 
       
       - name: Inject Simkl Credentials into Code
@@ -114,7 +101,7 @@ jobs:
       #     retention-days: 1
 
       - name: Publish to PyPI (skip existing)
-        if: ${{ github.event_name == 'push' || inputs.publish }}
+        if: ${{ inputs.publish }}
         run: poetry publish --skip-existing -vvv
         env:
           POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_API_TOKEN }}
