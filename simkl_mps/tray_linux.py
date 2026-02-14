@@ -199,7 +199,7 @@ class AppIndicatorTray:
                 else:
                     # Subsequent items join the group
                     item = gtk_module.RadioMenuItem(group=threshold_group, label=label)
-                
+
                 item.set_active(current_threshold == value)
                 item.connect("activate", lambda w, v=value: self._wrap_callback(lambda: self.app._set_preset_threshold(v))())
                 return item
