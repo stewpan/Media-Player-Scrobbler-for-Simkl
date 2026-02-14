@@ -94,37 +94,31 @@ jobs:
           import json
           import os
           from pathlib import Path
-            import re
+          import re
 
           path = Path("simkl_mps/credentials.py")
           text = path.read_text(encoding="utf-8")
 
-            id_literal = json.dumps(os.environ["SIMKL_CLIENT_ID"])
-            secret_literal = json.dumps(os.environ["SIMKL_CLIENT_SECRET"])
+          id_literal = json.dumps(os.environ["SIMKL_CLIENT_ID"])
+          secret_literal = json.dumps(os.environ["SIMKL_CLIENT_SECRET"])
 
-            text, id_count = re.subn(
-              r'^SIMKL_CLIENT_ID\s*=\s*.*$',
-              f'SIMKL_CLIENT_ID = {id_literal}',
-              text,
-              count=1,
-              flags=re.MULTILINE,
-            )
-            text, secret_count = re.subn(
-              r'^SIMKL_CLIENT_SECRET\s*=\s*.*$',
-              f'SIMKL_CLIENT_SECRET = {secret_literal}',
-              text,
-              count=1,
-              flags=re.MULTILINE,
-            )
+          text, id_count = re.subn(
+            r'^SIMKL_CLIENT_ID\s*=\s*.*$',
+            f'SIMKL_CLIENT_ID = {id_literal}',
+            text,
+            count=1,
+            flags=re.MULTILINE,
+          )
+          text, secret_count = re.subn(
+            r'^SIMKL_CLIENT_SECRET\s*=\s*.*$',
+            f'SIMKL_CLIENT_SECRET = {secret_literal}',
+            text,
+            count=1,
+            flags=re.MULTILINE,
+          )
 
-            if id_count != 1 or secret_count != 1:
-              raise RuntimeError("Failed to inject SIMKL credentials into runtime assignment lines")
-
-          path.write_text(text, encoding="utf-8")
-          PY
-
-          echo "✅ Credentials successfully injected into simkl_mps/credentials.py"
-
+          if id_count != 1 or secret_count != 1:
+            raise RuntimeError("Failed to inject SIMKL credentials into runtime assignment lines")
       - name: Verify credential placeholders are gone
         run: |
           if grep -qE '^SIMKL_CLIENT_ID\s*=\s*CLIENT_ID_PLACEHOLDER$|^SIMKL_CLIENT_SECRET\s*=\s*CLIENT_SECRET_PLACEHOLDER$' simkl_mps/credentials.py; then
