@@ -315,37 +315,161 @@ def _get_all_windows_info_windows():
         logger.error(f"Error getting all Windows windows info: {e}")
     return windows_info
 
+
+def _parse_macos_tab_window_output(output):
+    """Parse appName<TAB>windowTitle lines returned by macOS enumeration AppleScript."""
+    pairs = []
+    for line in (output or "").splitlines():
+        line = line.strip()
+        if not line or "\t" not in line:
+            continue
+        app_name, window_title = line.split("\t", 1)
+        app_name, window_title = app_name.strip(), window_title.strip()
+        if app_name and window_title:
+            pairs.append((app_name, window_title))
+    return pairs
+
+
+def _parse_macos_legacy_applescript_pairs(output):
+    """Parse legacy AppleScript list output formats when tab-delimited parsing fails."""
+    if not output:
+        return []
+    pairs = re.findall(r'\{"([^"]*)", "([^"]*)"\}', output)
+    if pairs:
+        return pairs
+    pairs = re.findall(r'\{([^{}]+), ([^{}]+)\}', output)
+    return [(a.strip(), b.strip()) for a, b in pairs if a.strip() and b.strip()]
+
+
+def _get_macos_window_titles_for_process(app_name):
+    """Query window titles for one process (matches manual osascript VLC checks)."""
+    safe_name = app_name.replace("\\", "\\\\").replace('"', '\\"')
+    script = f'''
+    tell application "System Events"
+        if not (exists process "{safe_name}") then
+            return ""
+        end if
+        tell process "{safe_name}"
+            set titleLines to ""
+            repeat with w in windows
+                try
+                    set wName to name of w
+                    if wName is not "" then
+                        set titleLines to titleLines & wName & linefeed
+                    end if
+                end try
+            end repeat
+            return titleLines
+        end tell
+    end tell
+    '''
+    try:
+        result = subprocess.run(
+            ["osascript", "-e", script],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode != 0:
+            return []
+        return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    except Exception as e:
+        logger.debug(f"Could not get window titles for process {app_name}: {e}")
+        return []
+
+
+def _get_macos_player_windows_via_running_processes():
+    """Fallback: find known media player processes via psutil, then read their window titles."""
+    windows_info = []
+    seen = set()
+    platform_players = VIDEO_PLAYER_EXECUTABLES.get("darwin", [])
+
+    for proc in psutil.process_iter(["name", "pid"]):
+        try:
+            proc_name = proc.info.get("name") or ""
+            proc_lower = proc_name.lower()
+            if not proc_name or not any(player.lower() in proc_lower for player in platform_players):
+                continue
+
+            titles = _get_macos_window_titles_for_process(proc_name)
+            if not titles:
+                key = (proc_name, "")
+                if key not in seen:
+                    seen.add(key)
+                    windows_info.append({
+                        "title": f"Unknown - {proc_name}",
+                        "process_name": proc_name,
+                        "app_name": proc_name,
+                        "pid": proc.pid,
+                    })
+                continue
+
+            for title in titles:
+                key = (proc_name, title)
+                if key in seen:
+                    continue
+                seen.add(key)
+                windows_info.append({
+                    "title": title,
+                    "process_name": proc_name,
+                    "app_name": proc_name,
+                    "pid": proc.pid,
+                })
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+
+    return windows_info
+
+
+def _merge_macos_window_lists(primary, secondary):
+    """Merge window entries without duplicate (process_name, title) pairs."""
+    seen = {(w.get("process_name"), w.get("title")) for w in primary}
+    merged = list(primary)
+    for window in secondary:
+        key = (window.get("process_name"), window.get("title"))
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append(window)
+    return merged
+
+
 def _get_all_windows_info_macos():
     """macOS-specific implementation to get all windows info."""
     windows_info = []
     try:
         script = '''
-        set windowList to {}
+        set output to ""
         tell application "System Events"
             set allProcesses to application processes where background only is false
             repeat with oneProcess in allProcesses
                 set appName to name of oneProcess
                 tell process appName
-                    set appWindows to windows
-                    repeat with windowObj in appWindows
-                        set windowTitle to ""
+                    repeat with windowObj in windows
                         try
                             set windowTitle to name of windowObj
+                            if windowTitle is not "" then
+                                set output to output & appName & tab & windowTitle & return
+                            end if
                         end try
-                        if windowTitle is not "" then
-                            set end of windowList to {appName, windowTitle}
-                        end if
                     end repeat
                 end tell
             end repeat
         end tell
-        return windowList
+        return output
         '''
         
-        result = subprocess.run(['osascript', '-e', script], capture_output=True, text=True)
+        result = subprocess.run(
+            ["osascript", "-e", script],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
         if result.returncode == 0 and result.stdout.strip():
             output = result.stdout.strip()
-            pairs = re.findall(r'\{\"(.*?)\", \"(.*?)\"\}', output)
+            pairs = _parse_macos_tab_window_output(output)
+            if not pairs:
+                pairs = _parse_macos_legacy_applescript_pairs(output)
             
             for app_name, window_title in pairs:
                 windows_info.append({
@@ -355,24 +479,15 @@ def _get_all_windows_info_macos():
                 })
     except Exception as e:
         logger.error(f"Error getting all macOS windows info: {e}")
-        
-        try:
-            for player in VIDEO_PLAYER_EXECUTABLES['darwin']:
-                player_lower = player.lower()
-                for proc in psutil.process_iter(['name']):
-                    try:
-                        proc_name = proc.info['name'].lower()
-                        if player_lower in proc_name:
-                            windows_info.append({
-                                'title': f"Unknown - {proc_name}",
-                                'process_name': proc.info['name'],
-                                'pid': proc.pid
-                            })
-                    except (psutil.NoSuchProcess, psutil.AccessDenied):
-                        continue
-        except Exception as e:
-            logger.error(f"Error with macOS fallback window detection: {e}")
-            
+
+    player_windows = _get_macos_player_windows_via_running_processes()
+    if not windows_info:
+        if player_windows:
+            logger.info("macOS window enumeration returned no windows; using process-based fallback.")
+        windows_info = player_windows
+    elif player_windows:
+        windows_info = _merge_macos_window_lists(windows_info, player_windows)
+
     return windows_info
 
 def _get_all_windows_info_linux():
