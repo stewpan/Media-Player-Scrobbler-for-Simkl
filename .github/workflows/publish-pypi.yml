@@ -75,14 +75,12 @@ jobs:
             exit 1
           fi
 
-          # Inject Client ID
+          # Inject Client ID and Secret into assignment lines
           echo "Injecting SIMKL_CLIENT_ID into credentials.py"
-          # Use a different delimiter for sed in case the secret contains slashes
-          sed -i "s|SIMKL_CLIENT_ID_PLACEHOLDER|${SIMKL_CLIENT_ID}|g" simkl_mps/credentials.py
+          sed -i "s|^SIMKL_CLIENT_ID = .*|SIMKL_CLIENT_ID = \"${SIMKL_CLIENT_ID}\"|" simkl_mps/credentials.py
 
-          # Inject Client Secret
           echo "Injecting SIMKL_CLIENT_SECRET into credentials.py"
-          sed -i "s|SIMKL_CLIENT_SECRET_PLACEHOLDER|${SIMKL_CLIENT_SECRET}|g" simkl_mps/credentials.py
+          sed -i "s|^SIMKL_CLIENT_SECRET = .*|SIMKL_CLIENT_SECRET = \"${SIMKL_CLIENT_SECRET}\"|" simkl_mps/credentials.py
 
           echo "✅ Credentials successfully injected into simkl_mps/credentials.py"
 

@@ -51,9 +51,19 @@ VERSION = get_version()
 
 # Removed early exit for version flags - argparse will handle this.
 
-from simkl_mps.simkl_api import pin_auth_flow, get_user_settings # Added get_user_settings
-from simkl_mps.credentials import get_credentials, get_env_file_path
-from simkl_mps.main import SimklScrobbler, APP_DATA_DIR, get_tray_app # Import APP_DATA_DIR for log path display and get_tray_app
+from simkl_mps.simkl_api import (
+    pin_auth_flow,
+    get_user_settings,
+    print_client_id_setup_instructions,
+    SIMKL_DEVELOPER_SETTINGS_URL,
+)
+from simkl_mps.credentials import get_credentials, get_env_file_path, _is_usable_credential
+from simkl_mps.main import SimklScrobbler, APP_DATA_DIR, get_tray_app
+from simkl_mps.process_manager import (
+    acquire_instance_lock,
+    terminate_running_instances,
+    remove_pid_lock,
+)
 
 colorama.init()
 logger = logging.getLogger(__name__)
@@ -83,13 +93,31 @@ def _setup_logging(debug=False):
     
     logger.info(f"Logging initialized. Log file: {log_file}")
 
+def _print_missing_client_id_help():
+    """Print guidance when Simkl client ID/secret are not configured."""
+    env_path = get_env_file_path()
+    print(
+        f"{Fore.RED}ERROR: Simkl Client ID or Secret is not configured.{Style.RESET_ALL}",
+        file=sys.stderr,
+    )
+    print(
+        f"{Fore.YELLOW}Register your own app at {SIMKL_DEVELOPER_SETTINGS_URL}{Style.RESET_ALL}",
+        file=sys.stderr,
+    )
+    print(
+        f"{Fore.YELLOW}Then set SIMKL_CLIENT_ID and SIMKL_CLIENT_SECRET in "
+        f".env (development) or {env_path} (installed app).{Style.RESET_ALL}",
+        file=sys.stderr,
+    )
+
+
 def _check_prerequisites(check_token=True, check_client_id=True):
     """Helper function to check if credentials exist before running a command."""
     env_path = get_env_file_path()
     creds = get_credentials()
     error = False
-    if check_client_id and not creds.get("client_id"):
-        print(f"{Fore.RED}ERROR: Client ID is missing. Application build might be corrupted. Please reinstall.{Style.RESET_ALL}", file=sys.stderr)
+    if check_client_id and not _is_usable_credential(creds.get("client_id")):
+        _print_missing_client_id_help()
         error = True
     if check_token and not creds.get("access_token"):
         print(f"{Fore.RED}ERROR: Access Token not found in '{env_path}'. Please run 'simkl-mps init' first.{Style.RESET_ALL}", file=sys.stderr)
@@ -108,8 +136,8 @@ def init_command(args):
     creds = get_credentials()
     client_id = creds.get("client_id")
     access_token = creds.get("access_token")
-    if not client_id or not creds.get("client_secret"):
-        print(f"{Fore.RED}ERROR: Client ID or Secret not found. Please reinstall the application.{Style.RESET_ALL}", file=sys.stderr)
+    if not _is_usable_credential(client_id) or not _is_usable_credential(creds.get("client_secret")):
+        _print_missing_client_id_help()
         return 1
     print(f"{Fore.GREEN}✓ Client ID/Secret loaded.{Style.RESET_ALL}")
     if access_token:
@@ -128,7 +156,10 @@ def init_command(args):
     user_settings = get_user_settings(client_id, access_token)
     if not user_settings:
         print(f"{Fore.RED}ERROR: Configuration verification failed. Could not connect to Simkl API with the current credentials.{Style.RESET_ALL}", file=sys.stderr)
-        print(f"{Fore.YELLOW}Hint: Check your internet connection, Simkl API status, or try re-initializing ('simkl-mps init').{Style.RESET_ALL}")
+        if not _is_usable_credential(client_id):
+            print_client_id_setup_instructions("Configuration verification")
+        else:
+            print(f"{Fore.YELLOW}Hint: Check your internet connection, Simkl API status, or try re-initializing ('simkl-mps init').{Style.RESET_ALL}")
         print(f"{Fore.YELLOW}Log file: {APP_DATA_DIR / 'simkl_mps.log'}{Style.RESET_ALL}")
         return 1
     else:
@@ -164,9 +195,26 @@ def start_command(args):
     if os.environ.get("SIMKL_TRAY_SUBPROCESS") == "1":
         logger.info("Detected we're in the tray subprocess - running tray app directly")
         print("Running tray application directly...")
-        # Get the platform-specific tray app implementation
+        if not acquire_instance_lock():
+            print(
+                f"{Fore.RED}ERROR: Another simkl-mps instance is already running.{Style.RESET_ALL}",
+                file=sys.stderr,
+            )
+            return 1
         _, run_tray_app = get_tray_app()
         sys.exit(run_tray_app())
+
+    print("[*] Stopping any existing SIMKL-MPS instances...")
+    try:
+        stopped = terminate_running_instances(exclude_pid=os.getpid(), verbose=True)
+        if stopped:
+            print(f"{Fore.YELLOW}[!] Stopped {stopped} existing instance(s) before starting.{Style.RESET_ALL}")
+        else:
+            remove_pid_lock()
+    except Exception as e:
+        logger.exception("Failed to stop existing instances: %s", e)
+        print(f"{Fore.RED}ERROR: Could not stop existing instances: {e}{Style.RESET_ALL}", file=sys.stderr)
+        return 1
 
     print("[*] Launching application with tray icon in background...")
     logger.info("Launching tray application in detached process.")
@@ -255,6 +303,13 @@ def tray_command(args):
 
     print("[*] Launching tray application in foreground...")
     print("[*] Logs will be printed below. Press Ctrl+C to exit.")
+    if not acquire_instance_lock():
+        print(
+            f"{Fore.RED}ERROR: Another simkl-mps instance is already running. "
+            f"Use 'simkl-mps exit' first.{Style.RESET_ALL}",
+            file=sys.stderr,
+        )
+        return 1
     try:
         # Get the platform-specific tray app implementation
         _, run_tray_app = get_tray_app()
@@ -349,171 +404,19 @@ def exit_command(args):
     """
     print(f"{Fore.CYAN}=== Stopping Media Player Scrobbler for SIMKL ==={Style.RESET_ALL}")
     logger.info("Executing exit command to terminate all instances.")
-    
-    if sys.platform == "win32":
-        # Windows implementation
-        import ctypes
-        import win32com.client
-        import win32gui
-        import win32process
-        import win32con
-        
-        print("[*] Looking for running SIMKL-MPS instances...")
-        killed_any = False
-        
-        try:
-            # First approach: Find by window title/class and send WM_CLOSE
-            def enum_windows_callback(hwnd, results):
-                if win32gui.IsWindowVisible(hwnd):
-                    window_text = win32gui.GetWindowText(hwnd)
-                    class_name = win32gui.GetClassName(hwnd)
-                    
-                    # Check for our app window (both executable and Python process)
-                    if "MPS for SIMKL" in window_text or "simkl-mps" in window_text.lower():
-                        logger.info(f"Found window: '{window_text}', class: '{class_name}'")
-                        results.append(hwnd)
-                        
-                    # Also look for pystray windows (development mode)
-                    if class_name == "pystray" or "simkl-mps" in class_name.lower():
-                        logger.info(f"Found pystray window: '{window_text}', class: '{class_name}'")
-                        results.append(hwnd)
-                return True
-            
-            window_handles = []
-            win32gui.EnumWindows(enum_windows_callback, window_handles)
-            
-            for hwnd in window_handles:
-                try:
-                    # Get process ID for the window
-                    _, pid = win32process.GetWindowThreadProcessId(hwnd)
-                    logger.info(f"Sending close command to window with PID: {pid}")
-                    
-                    # Try to post a close message
-                    win32gui.PostMessage(hwnd, win32con.WM_CLOSE, 0, 0)
-                    killed_any = True
-                except Exception as e:
-                    logger.error(f"Failed to close window: {e}")
-            
-            # Second approach: Find processes by executable name
-            try:
-                wmi = win32com.client.GetObject('winmgmts:')
-                
-                process_names = [
-                    "MPS for SIMKL.exe",
-                    "MPSS.exe",
-                    "simkl-mps.exe",
-                    "python.exe"
-                ]
-                
-                for process_name in process_names:
-                    processes = []
-                    
-                    if process_name == "python.exe":
-                        # Only target Python processes running our module
-                        processes = wmi.ExecQuery(
-                            f"SELECT * FROM Win32_Process WHERE Name = '{process_name}' AND CommandLine LIKE '%simkl_mps%'"
-                        )
-                    else:
-                        processes = wmi.ExecQuery(f"SELECT * FROM Win32_Process WHERE Name = '{process_name}'")
-                    
-                    for process in processes:
-                        try:
-                            pid = process.ProcessId
-                            cmd_line = process.CommandLine or ""
-                            
-                            # Skip the current process
-                            if pid == os.getpid():
-                                continue
-                                
-                            # For python.exe, confirm it's actually our app
-                            if process_name == "python.exe" and "simkl_mps" not in cmd_line.lower():
-                                logger.debug(f"Skipping Python process (PID: {pid}) - not related to simkl-mps")
-                                continue
-                                
-                            logger.info(f"Terminating process: {process_name} (PID: {pid})")
-                            print(f"[*] Terminating process: {process_name} (PID: {pid})")
-                            process.Terminate()
-                            killed_any = True
-                        except Exception as e:
-                            logger.error(f"Failed to terminate process {process_name}: {e}")
-            except Exception as e:
-                logger.error(f"Error accessing WMI: {e}")
-        
-        except Exception as e:
-            logger.error(f"Error during Windows process termination: {e}", exc_info=True)
-            print(f"{Fore.RED}ERROR: Could not terminate processes: {e}{Style.RESET_ALL}", file=sys.stderr)
-            return 1
-    
-    elif sys.platform == "darwin":
-        # macOS implementation
-        import subprocess
-        
-        print("[*] Looking for running SIMKL-MPS instances...")
-        killed_any = False
-        
-        try:
-            # Find processes
-            cmd = [
-                "pgrep", "-f", "simkl-mps|simkl_mps|MPS for SIMKL"
-            ]
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            pids = result.stdout.strip().split()
-            
-            # Terminate each process except the current one
-            for pid in pids:
-                pid = pid.strip()
-                if pid and pid.isdigit() and int(pid) != os.getpid():
-                    logger.info(f"Terminating process with PID: {pid}")
-                    print(f"[*] Terminating process with PID: {pid}")
-                    try:
-                        subprocess.run(["kill", pid])
-                        killed_any = True
-                    except Exception as e:
-                        logger.error(f"Failed to terminate process {pid}: {e}")
-            
-        except Exception as e:
-            logger.error(f"Error during macOS process termination: {e}", exc_info=True)
-            print(f"{Fore.RED}ERROR: Could not terminate processes: {e}{Style.RESET_ALL}", file=sys.stderr)
-            return 1
-    
-    else:
-        # Linux implementation
-        import subprocess
-        
-        print("[*] Looking for running SIMKL-MPS instances...")
-        killed_any = False
-        
-        try:
-            # First find the relevant processes
-            cmd = [
-                "pgrep", "-f", "simkl-mps|simkl_mps|MPS for SIMKL"
-            ]
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            pids = result.stdout.strip().split()
-            
-            # Terminate each process except the current one
-            for pid in pids:
-                pid = pid.strip()
-                if pid and pid.isdigit() and int(pid) != os.getpid():
-                    logger.info(f"Terminating process with PID: {pid}")
-                    print(f"[*] Terminating process with PID: {pid}")
-                    try:
-                        subprocess.run(["kill", pid])
-                        killed_any = True
-                    except Exception as e:
-                        logger.error(f"Failed to terminate process {pid}: {e}")
-            
-        except Exception as e:
-            logger.error(f"Error during Linux process termination: {e}", exc_info=True)
-            print(f"{Fore.RED}ERROR: Could not terminate processes: {e}{Style.RESET_ALL}", file=sys.stderr)
-            return 1
-    
-    # Check if we killed anything
-    if killed_any:
+
+    try:
+        killed_count = terminate_running_instances(exclude_pid=os.getpid(), verbose=True)
+    except Exception as e:
+        logger.error("Error during process termination: %s", e, exc_info=True)
+        print(f"{Fore.RED}ERROR: Could not terminate processes: {e}{Style.RESET_ALL}", file=sys.stderr)
+        return 1
+
+    if killed_count:
         print(f"{Fore.GREEN}[✓] Successfully terminated SIMKL-MPS processes.{Style.RESET_ALL}")
     else:
         print(f"{Fore.YELLOW}[!] No running SIMKL-MPS processes were found.{Style.RESET_ALL}")
-        
+
     print(f"{Fore.GREEN}[✓] Application has been stopped.{Style.RESET_ALL}")
     return 0
 

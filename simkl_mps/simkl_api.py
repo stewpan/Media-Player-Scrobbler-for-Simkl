@@ -23,6 +23,46 @@ USER_AGENT = f"{APP_NAME}/{__version__} (Python {PY_VER}; {OS_NAME})"
 logger = logging.getLogger(__name__)
 
 SIMKL_API_BASE_URL = 'https://api.simkl.com'
+SIMKL_DEVELOPER_SETTINGS_URL = 'https://simkl.com/settings/developer'
+
+
+def is_client_id_failed_response(response):
+    """
+    Return True if the response indicates an invalid or missing Simkl client ID (HTTP 412).
+    """
+    if response is None or response.status_code != 412:
+        return False
+    try:
+        data = response.json()
+        if isinstance(data, dict):
+            for key in ('error', 'message', 'name'):
+                val = data.get(key)
+                if val and 'client_id' in str(val).lower():
+                    return True
+    except (ValueError, AttributeError):
+        pass
+    return 'client_id_failed' in (getattr(response, 'text', '') or '').lower()
+
+
+def print_client_id_setup_instructions(context=''):
+    """Print user-facing instructions for configuring a Simkl API client ID."""
+    prefix = f"{context}: " if context else ''
+    print(
+        f"\n[ERROR] {prefix}Invalid or missing Simkl API client ID.\n"
+        f"Register your own application and set your credentials:\n"
+        f"  1. Go to {SIMKL_DEVELOPER_SETTINGS_URL}\n"
+        f"  2. Create an app and copy the Client ID and Client Secret\n"
+        f"  3. Add them to a .env file (development) or .simkl_mps.env (installed app):\n"
+        f"       SIMKL_CLIENT_ID=your_client_id\n"
+        f"       SIMKL_CLIENT_SECRET=your_client_secret\n"
+        f"  4. Run: simkl-mps init\n"
+    )
+    logger.error(
+        "%sSimkl API rejected the client ID (412 client_id_failed). "
+        "User must register at %s",
+        prefix,
+        SIMKL_DEVELOPER_SETTINGS_URL,
+    )
 
 
 def is_internet_connected():
@@ -506,6 +546,9 @@ def get_user_settings(client_id, access_token):
                     return settings
             else:
                 logger.warning("Simkl API: Account info is None despite 200 status code")
+        elif is_client_id_failed_response(account_response):
+            print_client_id_setup_instructions("Simkl API account check")
+            return None
         else:
             logger.warning(f"Simkl API: Account endpoint returned status code {account_response.status_code}")
             
@@ -518,6 +561,9 @@ def get_user_settings(client_id, access_token):
         logger.info("Simkl API: Requesting user settings information...")
         settings_response = requests.get(settings_url, headers=headers, timeout=15)
         
+        if is_client_id_failed_response(settings_response):
+            print_client_id_setup_instructions("Simkl API settings check")
+            return None
         if settings_response.status_code != 200:
             logger.error(f"Simkl API: Error getting user settings: {settings_response.status_code} {settings_response.text}")
             return None
@@ -601,8 +647,19 @@ def pin_auth_flow(client_id, redirect_uri="urn:ietf:wg:oauth:2.0:oob"):
             headers=headers,
             timeout=10
         )
+        if is_client_id_failed_response(resp):
+            print_client_id_setup_instructions("Simkl authentication")
+            return None
         resp.raise_for_status()
         data = resp.json()
+    except requests.exceptions.HTTPError as e:
+        response = getattr(e, 'response', None)
+        if response is not None and is_client_id_failed_response(response):
+            print_client_id_setup_instructions("Simkl authentication")
+            return None
+        logger.error(f"Failed to initiate PIN auth: {e}", exc_info=True)
+        print("[ERROR] Could not contact Simkl for authentication. Please check your internet connection and try again.")
+        return None
     except requests.exceptions.RequestException as e:
         logger.error(f"Failed to initiate PIN auth: {e}", exc_info=True)
         print("[ERROR] Could not contact Simkl for authentication. Please check your internet connection and try again.")
@@ -655,6 +712,9 @@ def pin_auth_flow(client_id, redirect_uri="urn:ietf:wg:oauth:2.0:oob"):
                 timeout=10
             )
             
+            if is_client_id_failed_response(poll):
+                print_client_id_setup_instructions("Simkl authentication")
+                return None
             if poll.status_code != 200:
                 logger.warning(f"Pin verification returned status {poll.status_code}, retrying...")
                 time.sleep(current_interval)
@@ -824,6 +884,13 @@ def _validate_access_token(client_id, access_token):
             headers=headers,
             timeout=10
         )
+        if is_client_id_failed_response(response):
+            logger.error(
+                "Access token validation failed: invalid client ID. "
+                "Register at %s",
+                SIMKL_DEVELOPER_SETTINGS_URL,
+            )
+            return False
         return response.status_code == 200
-    except:
+    except Exception:
         return False
