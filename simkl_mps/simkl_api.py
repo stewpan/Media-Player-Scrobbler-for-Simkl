@@ -231,6 +231,58 @@ def search_movie(title, client_id, access_token, file_path=None):
     logger.info(f"Simkl API: No movie results found for '{title}' after all search methods.")
     return None
 
+def search_tv(title, client_id, access_token):
+    """
+    Searches for a TV show using the /search/tv endpoint.
+
+    Args:
+        title (str): The show title to search for (without episode notation).
+        client_id (str): Simkl API client ID.
+        access_token (str): Simkl API access token.
+
+    Returns:
+        dict | None: The first matching show result wrapped as {'show': {...}}, or None.
+    """
+    if not is_internet_connected():
+        logger.warning(f"Simkl API: Cannot search for TV show '{title}', no internet connection.")
+        return None
+    if not client_id or not access_token:
+        logger.error("Simkl API: Missing Client ID or Access Token for TV show search.")
+        return None
+
+    headers = {
+        'Content-Type': 'application/json',
+        'simkl-api-key': client_id,
+        'Authorization': f'Bearer {access_token}'
+    }
+    headers = _add_user_agent(headers)
+
+    logger.info(f"Simkl API: Searching for TV show by title: '{title}'...")
+    try:
+        params = {'q': title, 'extended': 'full'}
+        response = requests.get(f'{SIMKL_API_BASE_URL}/search/tv', headers=headers, params=params)
+
+        if response.status_code == 200:
+            results_json = response.json()
+            logger.info(f"Simkl API: Found {len(results_json) if isinstance(results_json, list) else 'N/A'} TV show results for '{title}'.")
+
+            if isinstance(results_json, list) and results_json:
+                show_item = results_json[0]
+                simkl_id = show_item.get('ids', {}).get('simkl_id') or show_item.get('ids', {}).get('simkl')
+                # Normalize simkl_id key
+                if simkl_id and not show_item.get('ids', {}).get('simkl'):
+                    show_item.setdefault('ids', {})['simkl'] = simkl_id
+                logger.info(f"Simkl API: Found TV show via title search: '{show_item.get('title', title)}' (ID: {simkl_id})")
+                return {'show': show_item}
+        else:
+            logger.warning(f"Simkl API: TV show search failed for '{title}'. Status: {response.status_code}")
+    except requests.exceptions.RequestException as e:
+        logger.warning(f"Simkl API: Network error during TV show search for '{title}': {e}")
+
+    logger.info(f"Simkl API: No TV show results found for '{title}'.")
+    return None
+
+
 def search_file(file_path, client_id, part=None):
     """
     Searches for movies, shows, anime, or episodes based on a file path using the Simkl /search/file endpoint.

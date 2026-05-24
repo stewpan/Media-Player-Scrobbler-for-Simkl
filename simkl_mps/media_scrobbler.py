@@ -24,7 +24,8 @@ from simkl_mps.simkl_api import (
     get_show_details,
     search_file,
     add_to_history,
-    search_movie
+    search_movie,
+    search_tv
 )
 from simkl_mps.backlog_cleaner import BacklogCleaner
 from simkl_mps.window_detection import parse_movie_title, parse_filename_from_path, is_video_player
@@ -1340,20 +1341,50 @@ class MediaScrobbler:
                     )
             return
 
-        logger.info(f"Attempting Simkl movie search for: '{title_to_search}'")
+        # Check if the title contains episode notation (e.g. S01E01, S01, E01).
+        # If so, this is almost certainly a TV show — search /search/tv first and
+        # only fall back to /search/movie if nothing is found.
+        _episode_notation_re = re.compile(
+            r'\bS\d{1,2}E\d{1,3}\b'      # S01E01
+            r'|\bS\d{1,2}\b'              # S01 alone
+            r'|\bE\d{1,3}\b'              # E01 alone
+            r'|\b\d{1,2}[xX]\d{1,3}\b',  # 1x01
+            re.IGNORECASE
+        )
+        has_episode_notation = bool(_episode_notation_re.search(title_to_search))
+
+        # Strip episode/season codes to get a clean show title for the TV search
+        _strip_re = re.compile(
+            r'\s*S\d{1,2}E\d{1,3}.*'
+            r'|\s*S\d{1,2}\b.*'
+            r'|\s*E\d{1,3}\b.*'
+            r'|\s*\d{1,2}[xX]\d{1,3}.*',
+            re.IGNORECASE
+        )
+        clean_show_title = _strip_re.sub('', title_to_search).strip() if has_episode_notation else title_to_search
+
+        logger.info(f"Attempting Simkl {'TV show' if has_episode_notation else 'movie'} search for: '{clean_show_title}'")
         try:
-            # Use file search directly if filepath is available, otherwise fall back to title search
-            results = search_movie(title_to_search, self.client_id, self.access_token, file_path=self.current_filepath)
+            if has_episode_notation:
+                # Episode notation present — search TV shows first
+                results = search_tv(clean_show_title, self.client_id, self.access_token)
+                if results:
+                    self._process_simkl_search_result(results, title_to_search, cache_key, "simkl_search_tv")
+                    return
+                # No TV show found — fall back to movie search with original title
+                logger.info(f"No TV show match for '{clean_show_title}', falling back to movie search.")
+                results = search_movie(title_to_search, self.client_id, self.access_token, file_path=self.current_filepath)
+            else:
+                results = search_movie(title_to_search, self.client_id, self.access_token, file_path=self.current_filepath)
+
             if results:
-                # search_movie can return a list or a single movie dict
-                # _process_simkl_search_result handles both list (takes first) and dict
                 self._process_simkl_search_result(results, title_to_search, cache_key, "simkl_search_movie")
             else:
-                logger.warning(f"Simkl movie search for '{title_to_search}' returned no results.")
+                logger.warning(f"Simkl search for '{title_to_search}' returned no results.")
         except RequestException as e:
-            logger.warning(f"Network error during Simkl movie search for '{title_to_search}': {e}")
+            logger.warning(f"Network error during Simkl search for '{title_to_search}': {e}")
         except Exception as e:
-            logger.error(f"Error during Simkl movie search for '{title_to_search}': {e}", exc_info=True)
+            logger.error(f"Error during Simkl search for '{title_to_search}': {e}", exc_info=True)
 
     def _clear_backlog_entry_if_temp_identified(self):
         """Removes a temporary 'identification_pending' backlog entry if the current item was resolved from it."""
