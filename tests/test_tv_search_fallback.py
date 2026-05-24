@@ -89,42 +89,49 @@ def test_search_tv_missing_credentials():
 
 
 @patch("simkl_mps.media_scrobbler.is_internet_connected", return_value=True)
-@patch("simkl_mps.media_scrobbler.search_tv")
+@patch("simkl_mps.media_scrobbler.resolve_season_entry")
 @patch("simkl_mps.media_scrobbler.search_movie")
-def test_media_scrobbler_searches_tv_first_with_episode_notation(mock_search_movie, mock_search_tv, _mock_inet, tmp_path):
+def test_media_scrobbler_searches_tv_first_with_episode_notation(mock_search_movie, mock_resolve_season, _mock_inet, tmp_path):
     scrobbler = MediaScrobbler(app_data_dir=tmp_path, client_id="cid", access_token="token")
     scrobbler._process_simkl_search_result = MagicMock()
 
     # Episode notation present: S01E01
-    mock_search_tv.return_value = {"show": {"title": "Game of Thrones", "ids": {"simkl_id": 555}}}
+    mock_resolve_season.return_value = {
+        "simkl_id": 555,
+        "title": "Game of Thrones",
+        "type": "anime",
+        "raw_result": {"title": "Game of Thrones", "ids": {"simkl": 555}}
+    }
     
     # We trigger the search logic
     scrobbler._identify_movie("Game of Thrones S01E01")
 
-    mock_search_tv.assert_called_once_with("Game of Thrones", "cid", "token")
+    mock_resolve_season.assert_called_with("Game of Thrones", 1, 1, "cid", "token", media_type="anime")
     mock_search_movie.assert_not_called()
     scrobbler._process_simkl_search_result.assert_called_once_with(
-        {"show": {"title": "Game of Thrones", "ids": {"simkl_id": 555}}},
+        {"show": {"title": "Game of Thrones", "ids": {"simkl": 555}}},
         "Game of Thrones S01E01",
         "game of thrones s01e01",
-        "simkl_search_tv"
+        "simkl_search_resolver_anime"
     )
 
 
 @patch("simkl_mps.media_scrobbler.is_internet_connected", return_value=True)
-@patch("simkl_mps.media_scrobbler.search_tv")
+@patch("simkl_mps.media_scrobbler.resolve_season_entry")
 @patch("simkl_mps.media_scrobbler.search_movie")
-def test_media_scrobbler_falls_back_to_movie_if_tv_search_fails(mock_search_movie, mock_search_tv, _mock_inet, tmp_path):
+def test_media_scrobbler_falls_back_to_movie_if_tv_search_fails(mock_search_movie, mock_resolve_season, _mock_inet, tmp_path):
     scrobbler = MediaScrobbler(app_data_dir=tmp_path, client_id="cid", access_token="token")
     scrobbler._process_simkl_search_result = MagicMock()
 
-    # Episode notation present: S01
-    mock_search_tv.return_value = None
+    # Episode notation present: S01 (which resolves to Season 1, Episode 1)
+    mock_resolve_season.return_value = None
     mock_search_movie.return_value = [{"title": "Game of Thrones Special", "ids": {"simkl_id": 999}}]
 
     scrobbler._identify_movie("Game of Thrones S01")
 
-    mock_search_tv.assert_called_once_with("Game of Thrones", "cid", "token")
+    # It will try anime first, then show
+    mock_resolve_season.assert_any_call("Game of Thrones", 1, 1, "cid", "token", media_type="anime")
+    mock_resolve_season.assert_any_call("Game of Thrones", 1, 1, "cid", "token", media_type="show")
     mock_search_movie.assert_called_once_with("Game of Thrones S01", "cid", "token", file_path=None)
     scrobbler._process_simkl_search_result.assert_called_once_with(
         [{"title": "Game of Thrones Special", "ids": {"simkl_id": 999}}],
@@ -135,9 +142,9 @@ def test_media_scrobbler_falls_back_to_movie_if_tv_search_fails(mock_search_movi
 
 
 @patch("simkl_mps.media_scrobbler.is_internet_connected", return_value=True)
-@patch("simkl_mps.media_scrobbler.search_tv")
+@patch("simkl_mps.media_scrobbler.resolve_season_entry")
 @patch("simkl_mps.media_scrobbler.search_movie")
-def test_media_scrobbler_searches_movie_directly_without_episode_notation(mock_search_movie, mock_search_tv, _mock_inet, tmp_path):
+def test_media_scrobbler_searches_movie_directly_without_episode_notation(mock_search_movie, mock_resolve_season, _mock_inet, tmp_path):
     scrobbler = MediaScrobbler(app_data_dir=tmp_path, client_id="cid", access_token="token")
     scrobbler._process_simkl_search_result = MagicMock()
 
@@ -146,7 +153,7 @@ def test_media_scrobbler_searches_movie_directly_without_episode_notation(mock_s
 
     scrobbler._identify_movie("Inception")
 
-    mock_search_tv.assert_not_called()
+    mock_resolve_season.assert_not_called()
     mock_search_movie.assert_called_once_with("Inception", "cid", "token", file_path=None)
     scrobbler._process_simkl_search_result.assert_called_once_with(
         [{"title": "Inception", "ids": {"simkl_id": 777}}],
@@ -157,25 +164,28 @@ def test_media_scrobbler_searches_movie_directly_without_episode_notation(mock_s
 
 
 @patch("simkl_mps.media_scrobbler.is_internet_connected", return_value=True)
-@patch("simkl_mps.media_scrobbler.search_tv")
-def test_media_scrobbler_searches_with_season_suffix_first(mock_search_tv, _mock_inet, tmp_path):
+@patch("simkl_mps.media_scrobbler.resolve_season_entry")
+def test_media_scrobbler_searches_with_season_suffix_first(mock_resolve_season, _mock_inet, tmp_path):
     scrobbler = MediaScrobbler(app_data_dir=tmp_path, client_id="cid", access_token="token")
     scrobbler._process_simkl_search_result = MagicMock()
 
     # Episode notation present: S03E04
-    mock_search_tv.side_effect = [
-        {"show": {"title": "Jujutsu Kaisen Season 3", "ids": {"simkl_id": 12345}}}, # First call with season query
-    ]
+    mock_resolve_season.return_value = {
+        "simkl_id": 12345,
+        "title": "Jujutsu Kaisen Season 3",
+        "type": "anime",
+        "raw_result": {"title": "Jujutsu Kaisen Season 3", "ids": {"simkl": 12345}}
+    }
 
     scrobbler._identify_movie("Jujutsu Kaisen S03E04")
 
-    # Assert that search_tv was called with the season-specific query first
-    mock_search_tv.assert_called_once_with("Jujutsu Kaisen Season 3", "cid", "token")
+    # Assert that resolve_season_entry was called with the correct parameters
+    mock_resolve_season.assert_any_call("Jujutsu Kaisen", 3, 4, "cid", "token", media_type="anime")
     scrobbler._process_simkl_search_result.assert_called_once_with(
-        {"show": {"title": "Jujutsu Kaisen Season 3", "ids": {"simkl_id": 12345}}},
+        {"show": {"title": "Jujutsu Kaisen Season 3", "ids": {"simkl": 12345}}},
         "Jujutsu Kaisen S03E04",
         "jujutsu kaisen s03e04",
-        "simkl_search_tv"
+        "simkl_search_resolver_anime"
     )
 
 

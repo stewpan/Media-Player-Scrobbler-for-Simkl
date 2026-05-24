@@ -27,6 +27,7 @@ from simkl_mps.simkl_api import (
     search_movie,
     search_tv
 )
+from simkl_mps.season_resolver import resolve_season_entry
 from simkl_mps.backlog_cleaner import BacklogCleaner
 from simkl_mps.window_detection import parse_movie_title, parse_filename_from_path, is_video_player
 from simkl_mps.media_cache import MediaCache
@@ -46,31 +47,28 @@ def title_matches_season(title: str, season: int) -> bool:
         season = int(season)
     except (ValueError, TypeError):
         return False
+
+    roman = {1: "i", 2: "ii", 3: "iii", 4: "iv", 5: "v", 6: "vi", 7: "vii", 8: "viii", 9: "ix", 10: "x"}
+    roman_num = roman.get(season, "INVALID")
     
-    # Standard season indicators
-    indicators = [
-        f"season {season}",
-        f"{season}nd season" if season == 2 else f"{season}rd season" if season == 3 else f"{season}th season",
-        f"part {season}",
-        f"cour {season}",
-        f" s0{season}" if season < 10 else f" s{season}",
+    patterns = [
+        rf"\bseason\s*0*{season}\b",
+        rf"\bs0*{season}\b",
+        rf"\b{season}(?:st|nd|rd|th)?\s*season\b",
+        rf"\bpart\s*0*{season}\b",
+        rf"\bcour\s*0*{season}\b",
     ]
-    
-    # Roman numeral representation
-    roman_numerals = {1: " i", 2: " ii", 3: " iii", 4: " iv", 5: " v", 6: " vi", 7: " vii", 8: " viii", 9: " ix", 10: " x"}
-    if season in roman_numerals:
-        indicators.append(roman_numerals[season])
-        # Also check if it ends with roman numeral or has it as a word
-        indicators.append(f" {roman_numerals[season].strip()}")
+    if roman_num != "INVALID":
+        patterns.append(rf"\bpart\s*{roman_num}\b")
+        patterns.append(rf"\b{roman_num}\b")
         
-    for ind in indicators:
-        if ind in title_lower:
-            return True
-            
     # Also support word representation of numbers
-    words = {2: "second", 3: "third", 4: "fourth", 5: "fifth", 6: "sixth", 7: "seventh", 8: "eighth", 9: "ninth", 10: "tenth"}
+    words = {1: "first", 2: "second", 3: "third", 4: "fourth", 5: "fifth", 6: "sixth", 7: "seventh", 8: "eighth", 9: "ninth", 10: "tenth"}
     if season in words:
-        if f"{words[season]} season" in title_lower:
+        patterns.append(rf"\b{words[season]}\s*season\b")
+        
+    for pattern in patterns:
+        if re.search(pattern, title_lower):
             return True
             
     return False
@@ -1400,7 +1398,7 @@ class MediaScrobbler:
         )
         clean_show_title = _strip_re.sub('', title_to_search).strip() if has_episode_notation else title_to_search
 
-        # Extract season number
+        # Extract season and episode numbers
         season_num = None
         season_match = re.search(r'\bS(\d{1,2})\b|\bS(\d{1,2})E\d{1,3}\b|\b(\d{1,2})[xX]\d{1,3}\b', title_to_search, re.IGNORECASE)
         if season_match:
@@ -1416,26 +1414,52 @@ class MediaScrobbler:
             except ValueError:
                 pass
 
-        logger.info(f"Attempting Simkl {'TV show' if has_episode_notation else 'movie'} search for: '{clean_show_title}' (Season: {season_num if season_num else 'N/A'})")
+        episode_num = None
+        episode_match = re.search(r'\b(?:S\d{1,2})?E(\d{1,3})\b|\b\d{1,2}[xX](\d{1,3})\b', title_to_search, re.IGNORECASE)
+        if episode_match:
+            episode_num_str = next((g for g in episode_match.groups() if g is not None), None)
+            if episode_num_str:
+                try:
+                    episode_num = int(episode_num_str)
+                except ValueError:
+                    pass
+        if episode_num is None and self._episode_guess_from_filename is not None:
+            try:
+                episode_num = int(self._episode_guess_from_filename)
+            except ValueError:
+                pass
+
+        logger.info(f"Attempting Simkl {'TV show' if has_episode_notation else 'movie'} search for: '{clean_show_title}' (Season: {season_num if season_num else 'N/A'}, Episode: {episode_num if episode_num else 'N/A'})")
         try:
             if has_episode_notation:
-                # Episode notation present — search TV shows first
-                results = None
-                if season_num and season_num > 1:
-                    # Try season-specific query first
-                    season_query = f"{clean_show_title} Season {season_num}"
-                    logger.info(f"Trying season-specific Simkl TV search for: '{season_query}'")
-                    results = search_tv(season_query, self.client_id, self.access_token)
-                
-                if not results:
-                    # Fall back to clean title search
-                    results = search_tv(clean_show_title, self.client_id, self.access_token)
+                # Episode notation present — resolve using SeasonResolver
+                # Try anime search first
+                resolved = resolve_season_entry(
+                    clean_show_title, 
+                    season_num or 1, 
+                    episode_num or 1, 
+                    self.client_id, 
+                    self.access_token, 
+                    media_type="anime"
+                )
+                if not resolved:
+                    # Fall back to show/TV search next
+                    resolved = resolve_season_entry(
+                        clean_show_title, 
+                        season_num or 1, 
+                        episode_num or 1, 
+                        self.client_id, 
+                        self.access_token, 
+                        media_type="show"
+                    )
 
-                if results:
-                    self._process_simkl_search_result(results, title_to_search, cache_key, "simkl_search_tv")
+                if resolved:
+                    results = {"show": resolved["raw_result"]}
+                    self._process_simkl_search_result(results, title_to_search, cache_key, f"simkl_search_resolver_{resolved['type']}")
                     return
+                
                 # No TV show found — fall back to movie search with original title
-                logger.info(f"No TV show match for '{clean_show_title}', falling back to movie search.")
+                logger.info(f"No TV show/anime match for '{clean_show_title}', falling back to movie search.")
                 results = search_movie(title_to_search, self.client_id, self.access_token, file_path=self.current_filepath)
             else:
                 results = search_movie(title_to_search, self.client_id, self.access_token, file_path=self.current_filepath)
