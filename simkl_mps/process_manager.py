@@ -7,6 +7,7 @@ import os
 import signal
 import subprocess
 import sys
+import time
 
 from simkl_mps.config_manager import get_app_data_dir
 
@@ -214,14 +215,31 @@ def terminate_running_instances(exclude_pid=None, verbose=True):
     else:
         if verbose:
             print("[*] Looking for running SIMKL-MPS instances...")
-        for pid in find_running_pids(exclude_pid=exclude_pid):
+        pids_to_kill = find_running_pids(exclude_pid=exclude_pid)
+        for pid in pids_to_kill:
             if verbose:
                 print(f"[*] Terminating process with PID: {pid}")
             try:
-                subprocess.run(["kill", str(pid)], check=False)
+                os.kill(pid, signal.SIGTERM)
                 terminated += 1
             except Exception as e:
                 logger.error("Failed to terminate process %s: %s", pid, e)
+
+        # Wait up to 3 seconds for target processes to exit
+        start_wait = time.time()
+        alive_pids = [p for p in pids_to_kill if is_process_alive(p)]
+        while alive_pids and (time.time() - start_wait < 3.0):
+            time.sleep(0.1)
+            alive_pids = [p for p in pids_to_kill if is_process_alive(p)]
+
+        # Force kill any remaining processes
+        for pid in alive_pids:
+            if verbose:
+                print(f"[!] Force-killing process with PID: {pid}")
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except Exception as e:
+                logger.error("Failed to force kill process %s: %s", pid, e)
 
     remove_pid_lock()
     return terminated

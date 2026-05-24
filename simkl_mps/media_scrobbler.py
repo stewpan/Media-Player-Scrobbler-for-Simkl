@@ -38,6 +38,43 @@ except ImportError:
     logger.error("The 'guessit' library is required for episode detection. Please install it: pip install guessit")
     guessit = None
 
+def title_matches_season(title: str, season: int) -> bool:
+    if not title or not season:
+        return False
+    title_lower = title.lower()
+    try:
+        season = int(season)
+    except (ValueError, TypeError):
+        return False
+    
+    # Standard season indicators
+    indicators = [
+        f"season {season}",
+        f"{season}nd season" if season == 2 else f"{season}rd season" if season == 3 else f"{season}th season",
+        f"part {season}",
+        f"cour {season}",
+        f" s0{season}" if season < 10 else f" s{season}",
+    ]
+    
+    # Roman numeral representation
+    roman_numerals = {1: " i", 2: " ii", 3: " iii", 4: " iv", 5: " v", 6: " vi", 7: " vii", 8: " viii", 9: " ix", 10: " x"}
+    if season in roman_numerals:
+        indicators.append(roman_numerals[season])
+        # Also check if it ends with roman numeral or has it as a word
+        indicators.append(f" {roman_numerals[season].strip()}")
+        
+    for ind in indicators:
+        if ind in title_lower:
+            return True
+            
+    # Also support word representation of numbers
+    words = {2: "second", 3: "third", 4: "fourth", 5: "fifth", 6: "sixth", 7: "seventh", 8: "eighth", 9: "ninth", 10: "tenth"}
+    if season in words:
+        if f"{words[season]} season" in title_lower:
+            return True
+            
+    return False
+
 from simkl_mps.utils.constants import PLAYING, PAUSED, STOPPED, DEFAULT_POLL_INTERVAL
 from simkl_mps.config_manager import get_setting, DEFAULT_THRESHOLD
 from simkl_mps.watch_history_manager import WatchHistoryManager
@@ -1363,11 +1400,37 @@ class MediaScrobbler:
         )
         clean_show_title = _strip_re.sub('', title_to_search).strip() if has_episode_notation else title_to_search
 
-        logger.info(f"Attempting Simkl {'TV show' if has_episode_notation else 'movie'} search for: '{clean_show_title}'")
+        # Extract season number
+        season_num = None
+        season_match = re.search(r'\bS(\d{1,2})\b|\bS(\d{1,2})E\d{1,3}\b|\b(\d{1,2})[xX]\d{1,3}\b', title_to_search, re.IGNORECASE)
+        if season_match:
+            season_num_str = next((g for g in season_match.groups() if g is not None), None)
+            if season_num_str:
+                try:
+                    season_num = int(season_num_str)
+                except ValueError:
+                    pass
+        if season_num is None and self._season_guess_from_filename is not None:
+            try:
+                season_num = int(self._season_guess_from_filename)
+            except ValueError:
+                pass
+
+        logger.info(f"Attempting Simkl {'TV show' if has_episode_notation else 'movie'} search for: '{clean_show_title}' (Season: {season_num if season_num else 'N/A'})")
         try:
             if has_episode_notation:
                 # Episode notation present — search TV shows first
-                results = search_tv(clean_show_title, self.client_id, self.access_token)
+                results = None
+                if season_num and season_num > 1:
+                    # Try season-specific query first
+                    season_query = f"{clean_show_title} Season {season_num}"
+                    logger.info(f"Trying season-specific Simkl TV search for: '{season_query}'")
+                    results = search_tv(season_query, self.client_id, self.access_token)
+                
+                if not results:
+                    # Fall back to clean title search
+                    results = search_tv(clean_show_title, self.client_id, self.access_token)
+
                 if results:
                     self._process_simkl_search_result(results, title_to_search, cache_key, "simkl_search_tv")
                     return
@@ -1657,10 +1720,16 @@ class MediaScrobbler:
         elif self.media_type == 'show':
             if self.season is not None and self.episode is not None:
                 try:
+                    scrobble_season = int(self.season)
+                    if scrobble_season > 1 and self.movie_name:
+                        if title_matches_season(self.movie_name, scrobble_season):
+                            logger.info(f"Simkl API: Detected season-specific entry '{self.movie_name}' for season {self.season}. Overriding scrobble season to 1.")
+                            scrobble_season = 1
+
                     payload = {
                         "shows": [{
                             "ids": item_ids,
-                            "seasons": [{"number": int(self.season), "episodes": [{"number": int(self.episode), "watched_at": watched_at}]}]
+                            "seasons": [{"number": scrobble_season, "episodes": [{"number": int(self.episode), "watched_at": watched_at}]}]
                         }]
                     }
                 except ValueError:
@@ -1673,10 +1742,16 @@ class MediaScrobbler:
             # If Simkl API for anime consistently uses seasons, this might need adjustment or reliance on S/E resolution.
             if self.episode is not None:
                 try:
+                    scrobble_season = int(self.season) if self.season is not None else None
+                    if scrobble_season and scrobble_season > 1 and self.movie_name:
+                        if title_matches_season(self.movie_name, scrobble_season):
+                            logger.info(f"Simkl API: Detected season-specific anime entry '{self.movie_name}' for season {self.season}. Overriding scrobble season to 1.")
+                            scrobble_season = 1
+
                     anime_episode_payload = [{"number": int(self.episode), "watched_at": watched_at}]
                     show_item: Dict[str, Any] = {"ids": item_ids}
-                    if self.season is not None: # If season is known, nest episode under it
-                         show_item["seasons"] = [{"number": int(self.season), "episodes": anime_episode_payload}]
+                    if scrobble_season is not None: # If season is known, nest episode under it
+                         show_item["seasons"] = [{"number": scrobble_season, "episodes": anime_episode_payload}]
                     else: # Otherwise, episodes directly under show (common for OVAs or movies treated as anime episodes)
                          show_item["episodes"] = anime_episode_payload
                     payload = {"shows": [show_item]}

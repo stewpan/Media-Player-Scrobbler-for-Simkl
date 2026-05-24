@@ -165,6 +165,7 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
 
 
     def __init__(self):
+        self.tray_icon = None
         self.scrobbler: Optional["SimklScrobbler"] = None
         self.monitoring_active = False
         self.status = "stopped"
@@ -183,6 +184,17 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
         self._last_known_access_token = None
         self._last_known_client_id = None
         self._refresh_auth_state(initial=True)
+
+        # Register atexit handler to ensure tray icon cleanup
+        import atexit
+        def cleanup_tray_icon():
+            if self.tray_icon:
+                try:
+                    logger.info("atexit: stopping tray icon")
+                    self.tray_icon.stop()
+                except Exception as e:
+                    logger.error(f"Error stopping tray icon in atexit: {e}")
+        atexit.register(cleanup_tray_icon)
 
         # Improved asset path resolution for frozen applications
         if getattr(sys, 'frozen', False):

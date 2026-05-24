@@ -154,3 +154,65 @@ def test_media_scrobbler_searches_movie_directly_without_episode_notation(mock_s
         "inception",
         "simkl_search_movie"
     )
+
+
+@patch("simkl_mps.media_scrobbler.is_internet_connected", return_value=True)
+@patch("simkl_mps.media_scrobbler.search_tv")
+def test_media_scrobbler_searches_with_season_suffix_first(mock_search_tv, _mock_inet, tmp_path):
+    scrobbler = MediaScrobbler(app_data_dir=tmp_path, client_id="cid", access_token="token")
+    scrobbler._process_simkl_search_result = MagicMock()
+
+    # Episode notation present: S03E04
+    mock_search_tv.side_effect = [
+        {"show": {"title": "Jujutsu Kaisen Season 3", "ids": {"simkl_id": 12345}}}, # First call with season query
+    ]
+
+    scrobbler._identify_movie("Jujutsu Kaisen S03E04")
+
+    # Assert that search_tv was called with the season-specific query first
+    mock_search_tv.assert_called_once_with("Jujutsu Kaisen Season 3", "cid", "token")
+    scrobbler._process_simkl_search_result.assert_called_once_with(
+        {"show": {"title": "Jujutsu Kaisen Season 3", "ids": {"simkl_id": 12345}}},
+        "Jujutsu Kaisen S03E04",
+        "jujutsu kaisen s03e04",
+        "simkl_search_tv"
+    )
+
+
+def test_build_add_to_history_payload_overrides_season_for_season_specific_entry(tmp_path):
+    scrobbler = MediaScrobbler(app_data_dir=tmp_path, client_id="cid", access_token="token")
+    scrobbler.simkl_id = 12345
+    scrobbler.media_type = "show"
+    scrobbler.season = 3
+    scrobbler.episode = 4
+    scrobbler.movie_name = "Jujutsu Kaisen Season 3"
+
+    payload = scrobbler._build_add_to_history_payload()
+
+    # The season should be overridden to 1 since Jujutsu Kaisen Season 3 is a season-level entry
+    assert payload == {
+        "shows": [{
+            "ids": {"simkl": 12345},
+            "seasons": [{"number": 1, "episodes": [{"number": 4, "watched_at": payload["shows"][0]["seasons"][0]["episodes"][0]["watched_at"]}]}]
+        }]
+    }
+
+
+def test_build_add_to_history_payload_does_not_override_for_non_season_specific_entry(tmp_path):
+    scrobbler = MediaScrobbler(app_data_dir=tmp_path, client_id="cid", access_token="token")
+    scrobbler.simkl_id = 12345
+    scrobbler.media_type = "show"
+    scrobbler.season = 3
+    scrobbler.episode = 4
+    scrobbler.movie_name = "Jujutsu Kaisen"  # Main show title
+
+    payload = scrobbler._build_add_to_history_payload()
+
+    # The season should remain 3
+    assert payload == {
+        "shows": [{
+            "ids": {"simkl": 12345},
+            "seasons": [{"number": 3, "episodes": [{"number": 4, "watched_at": payload["shows"][0]["seasons"][0]["episodes"][0]["watched_at"]}]}]
+        }]
+    }
+
