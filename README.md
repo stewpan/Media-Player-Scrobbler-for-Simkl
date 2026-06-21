@@ -13,6 +13,7 @@
 - 🎮 **Supports Every Famous Media Player** (VLC, PotPlayer, MPV, MPC-HC and more)
 - 🌐 **Cross-Platform** – Windows, macOS, Linux
 - 🖥️ **Native Executable** – System tray, auto-update, and background service (Windows)
+- 📊 **Local Web Dashboard** – Live now-playing, history & settings in your browser ([guide](docs/web-dashboard.md))
 - 📈 **Accurate Position Tracking** – For supported players (configure via [Media Players Guide](docs/media-players.md))
 - 🔌 **Offline Support** – Queues updates when offline
 - 🧠 **Smart Media Detection** – Intelligent filename parsing
@@ -25,6 +26,8 @@
 - **macOS:** Use the [Mac Guide](docs/mac-guide.md) (pip install, tray app, setup command needed, untested).
 
 After installation, authenticate with SIMKL and **configure your media players** using the [Media Players Guide](docs/media-players.md) (this step is critical for accurate tracking).
+
+Once it's running, open the **local web dashboard** from the tray (**Open Dashboard**) or at [`http://127.0.0.1:5555`](http://127.0.0.1:5555) for a live view of what's playing, your history, and settings — see the [Web Dashboard guide](docs/web-dashboard.md).
 
 
 ## 🔍 How It Works
@@ -39,6 +42,8 @@ graph LR
     style A fill:#d5f5e3,stroke:#333,stroke-width:2px
     style E fill:#d5f5e3,stroke:#333,stroke-width:2px
 ```
+
+A built-in **local web dashboard** ([`http://127.0.0.1:5555`](http://127.0.0.1:5555)) surfaces live now-playing status, your watch history, and settings in the browser. See the [Web Dashboard guide](docs/web-dashboard.md).
 
 ## 🚦 Performance Notes
 
@@ -55,6 +60,10 @@ graph LR
 - Notification: ~0.5 sec
 - Completion Save: ~3 sec
 - Completion Notification: ~0.5 sec
+
+## 📋 Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for release notes and what's new in each version.
 
 ## 📝 License
 

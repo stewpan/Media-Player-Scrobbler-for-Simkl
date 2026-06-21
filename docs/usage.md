@@ -48,6 +48,24 @@ A new local watch history page is available! Open the `watch-history-viewer` fol
 
 See [Local Watch History](watch-history.md) for full details.
 
+## 🌐 Web Dashboard
+
+MPS for SIMKL also runs a small **local web dashboard** in your browser while the app is
+running. Open it from the tray menu (**Open Dashboard**) or visit
+**`http://127.0.0.1:5555`**.
+
+- **Dashboard** — live "now playing" with progress, plus your watch-count stats.
+- **History** — search and filter everything you've watched.
+- **Settings** — completion threshold, notifications, auto-sync interval, directory
+  filters, and Simkl sign-in (a browser-based PIN flow).
+
+The dashboard is **localhost-only** (reachable only from this computer) and needs no
+password. You can change the port or turn it off with the `web_ui_port` / `web_ui_enabled`
+settings. If you installed from source rather than a packaged build, build the UI once with
+`cd webui && npm install && npm run build`.
+
+See the [Web Dashboard guide](web-dashboard.md) for full details.
+
 ## 🔔 Tray Status Icons
 
 MPS for SIMKL uses the system tray/notification area to show its current status across all platforms:
@@ -69,6 +87,7 @@ Right-click the tray icon to access the app menu with the following sections:
 - **Retry Last Scrobble:** Clears cache for the active file and attempts to re-identify and scrobble it. Use when the wrong title/episode appears.
 - **Sync Backlog Now:** Immediately processes any offline scrobbles waiting in backlog.
 - **Completion Threshold:** Quickly switch between preset watch thresholds (65%, 80%, 90%) or define a custom percentage.
+- **Open Dashboard:** Open the local [web dashboard](web-dashboard.md) in your browser.
 - **Open Local Watch History:** Browse your tracked movies, shows, and anime in the local viewer.
 
 **SIMKL** - Account and service management:
