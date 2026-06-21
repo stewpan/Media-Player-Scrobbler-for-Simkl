@@ -1,1 +1,2 @@
 recursive-include simkl_mps/watch-history-viewer *
+recursive-include simkl_mps/web/dist *

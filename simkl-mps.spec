@@ -144,6 +144,8 @@ a = Analysis(
     datas=[
         (str(assets_path), assets_dest), # Your existing assets line
         ('simkl_mps/watch-history-viewer', 'simkl_mps/watch-history-viewer'), # Add watch history viewer
+        # Built web dashboard (produced by `cd webui && npm run build`); skipped if absent.
+        ('simkl_mps/web/dist', 'simkl_mps/web/dist') if os.path.isdir('simkl_mps/web/dist') else None,
         # Add the following line:
         (guessit_data_path, 'guessit/data') if guessit_data_path and os.path.isdir(guessit_data_path) else None,
         # Add babelfish data
@@ -204,6 +206,8 @@ tray_a = Analysis(
     datas=[
         (str(assets_path), assets_dest),
         ('simkl_mps/watch-history-viewer', 'simkl_mps/watch-history-viewer'), # Bundle watch-history-viewer for tray app
+        # Built web dashboard (produced by `cd webui && npm run build`); skipped if absent.
+        ('simkl_mps/web/dist', 'simkl_mps/web/dist') if os.path.isdir('simkl_mps/web/dist') else None,
         ('simkl_mps/tray_win.py', 'simkl_mps/tray_win'), # Add tray_win.py
         (guessit_data_path, 'guessit/data') if guessit_data_path and os.path.isdir(guessit_data_path) else None,
         (babelfish_data_path, 'babelfish/data') if babelfish_data_path and os.path.isdir(babelfish_data_path) else None,
