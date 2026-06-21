@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "simkl-mps"
-version = "2.5.0"
+version = "2.5.1"
 description = "Automatic Media Scrobbler for Simkl"
 authors = [
     "kavin <kavinthangavel.dev@gmail.com>",
@@ -22,6 +22,12 @@ classifiers = [
 ]
 packages = [
     { include = "simkl_mps" },
+]
+# Force-include the built web dashboard. It lives under simkl_mps/web/dist but is
+# gitignored (built via `cd webui && npm run build`), and poetry-core excludes
+# VCS-ignored files by default, so it must be listed explicitly to ship in builds.
+include = [
+    { path = "simkl_mps/web/dist/**/*", format = ["sdist", "wheel"] },
 ]
 
 [tool.poetry.dependencies]

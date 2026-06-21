@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.1] - 2026-06-21
+
+### Fixed
+- The built web dashboard (`simkl_mps/web/dist`) was never bundled in packages, so
+  installs showed "Dashboard not built" even when the front-end had been built — the
+  assets are gitignored and poetry-core excludes VCS-ignored files. Force-include them via
+  `[tool.poetry] include`, and build the front-end (`npm run build`) in the PyPI publish
+  workflow so released wheels ship a working dashboard. (#12)
+
 ## [2.5.0] - 2026-06-21
 
 ### Changed
@@ -58,7 +67,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - macOS VLC window detection, credential loading and Simkl `412` handling, and
   Simkl season-level tracking for multi-season shows/anime.
 
-[Unreleased]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.5.0...HEAD
+[Unreleased]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.5.1...HEAD
+[2.5.1]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.5.0...v2.5.1
 [2.5.0]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.4.1...v2.5.0
 [2.4.1]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.4.0...v2.4.1
 [2.4.0]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/releases/tag/v2.4.0
