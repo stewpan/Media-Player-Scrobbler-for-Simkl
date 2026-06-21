@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-06-21
+
+### Changed
+- **Data directory moved to `~/.simkl-mps`** (a single hidden folder in your home),
+  replacing the confusing developer-named `~/kavin/simkl-mps` location. Existing data
+  (credentials, settings, watch history, cache) is **migrated automatically** on first
+  run — no re-authentication needed. Legacy `~/kavin/simkl-mps` and
+  `~/kavinthangavel/simkl-mps` are both handled. (#11)
+- Neutralized internal OS identifiers that embedded the old name: the Windows registry
+  key (`Software\simkl-mps\…`), the notification AppUserModelID (`simkl-mps`), and the
+  macOS updater LaunchAgent (`com.simkl-mps.updater`) — also migrated automatically.
+- Removed the now-unused `user_subdir` setting.
+
 ## [2.4.1] - 2026-06-21
 
 ### Fixed
@@ -45,6 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - macOS VLC window detection, credential loading and Simkl `412` handling, and
   Simkl season-level tracking for multi-season shows/anime.
 
-[Unreleased]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.4.1...HEAD
+[Unreleased]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.5.0...HEAD
+[2.5.0]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.4.1...v2.5.0
 [2.4.1]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.4.0...v2.4.1
 [2.4.0]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/releases/tag/v2.4.0

@@ -525,7 +525,7 @@ def main():
         if sys.platform == 'win32':
             try:
                 import winreg
-                with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\kavin\Media Player Scrobbler for SIMKL") as key:
+                with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\simkl-mps\Media Player Scrobbler for SIMKL") as key:
                     check_updates = winreg.QueryValueEx(key, "CheckUpdates")[0]
                     if check_updates == 1:
                         logger.info("Auto-update check enabled, checking for updates...")

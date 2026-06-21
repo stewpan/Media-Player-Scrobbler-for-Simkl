@@ -38,9 +38,8 @@ def _is_usable_credential(value):
     return True
 
 APP_NAME_FOR_PATH = "simkl-mps"
-USER_SUBDIR_FOR_PATH = "kavin"  # Updated from kavinthangavel
 try:
-    # Use migration-aware directory path
+    # Use migration-aware directory path (~/.simkl-mps)
     APP_DATA_DIR_FOR_PATH = get_app_data_dir()
     ENV_FILE_PATH = APP_DATA_DIR_FOR_PATH / ".simkl_mps.env"
     logger.debug(f"Using env file path: {ENV_FILE_PATH}")
