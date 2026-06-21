@@ -34,6 +34,7 @@ DEFAULT_SETTINGS = {
     "watch_completion_threshold": DEFAULT_THRESHOLD,
     "auto_sync_interval": 120,  # Auto sync backlog every 2 minutes by default
     "disable_notifications": False,  # Show all notifications by default
+    "skip_rewatch_scrobble": True,   # Don't re-scrobble items already watched on Simkl
     "allow_dirs": [],
     "deny_dirs": [],
     "web_ui_enabled": True,  # Serve the local web dashboard

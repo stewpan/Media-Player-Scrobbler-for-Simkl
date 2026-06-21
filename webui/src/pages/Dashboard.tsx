@@ -28,6 +28,7 @@ function NowPlaying({ status }: { status: Status }) {
           {status.state || "Playing"}
         </span>
         <span className="muted">{status.media_type}</span>
+        {status.is_rewatch && <span className="badge rewatch">Rewatch</span>}
       </div>
       <h2 className="np-title">
         {status.title || status.raw_title}

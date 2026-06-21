@@ -29,6 +29,7 @@ from simkl_mps.simkl_api import (
 )
 from simkl_mps.season_resolver import resolve_season_entry
 from simkl_mps.backlog_cleaner import BacklogCleaner
+from simkl_mps.rewatch import RewatchChecker
 from simkl_mps.window_detection import parse_movie_title, parse_filename_from_path, is_video_player
 from simkl_mps.media_cache import MediaCache
 
@@ -121,6 +122,9 @@ class MediaScrobbler:
         self.movie_name = None # Official title from Simkl (movie title or show title)
         self.last_scrobble_time = 0
         self.media_cache = MediaCache(app_data_dir=self.app_data_dir)
+        self.watch_history = WatchHistoryManager(self.app_data_dir)
+        self.rewatch_checker = RewatchChecker()
+        self._current_is_rewatch = False
         self.last_progress_check = 0
         self.completion_threshold = get_setting('watch_completion_threshold', DEFAULT_THRESHOLD)
         self.completed = False
@@ -557,6 +561,7 @@ class MediaScrobbler:
         self.state = PLAYING
         self.previous_state = STOPPED
         self.completed = False
+        self._current_is_rewatch = False
         self.current_position_seconds = 0
         self.total_duration_seconds = None # Will be updated by player or API
         self.estimated_duration = None
@@ -888,6 +893,7 @@ class MediaScrobbler:
             "episode": self.display_episode if self.display_episode is not None else self.episode,
             "state": self.state,
             "completed": self.completed,
+            "is_rewatch": getattr(self, '_current_is_rewatch', False),
             "progress_percent": percentage,
             "position_seconds": self.current_position_seconds,
             "duration_seconds": self.total_duration_seconds,
@@ -1621,6 +1627,25 @@ class MediaScrobbler:
             if self.media_type == 'anime' and self.episode is None:
                  logger.error(f"Failed to resolve episode for anime '{display_title}'. Cannot sync.")
                  return False
+
+        # --- Rewatch detection (local history first, then Simkl) ---
+        self._current_is_rewatch = self.rewatch_checker.is_rewatch(
+            self.simkl_id, self.media_type, self.season, self.episode,
+            watch_history=getattr(self, 'watch_history', None),
+            client_id=self.client_id, access_token=self.access_token,
+        )
+        if self._current_is_rewatch:
+            logger.info(f"Rewatch detected for '{display_title}' (ID: {self.simkl_id}).")
+            self._log_playback_event("rewatch_detected", {"simkl_id": self.simkl_id, "type": self.media_type})
+            if get_setting('skip_rewatch_scrobble', True):
+                logger.info(f"Skipping re-scrobble of rewatch '{display_title}' (skip_rewatch_scrobble enabled).")
+                self.completed = True  # mark done so the monitor doesn't keep retrying
+                self._send_notification(
+                    "Rewatch",
+                    f"'{display_title}' is a rewatch — not re-scrobbled to Simkl.",
+                    online_only=True,
+                )
+                return True
 
         # --- Construct Payload ---
         # Use self.watched_at if available, else None (handled in payload builder)

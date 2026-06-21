@@ -10,6 +10,7 @@ export interface Status {
   episode?: number | null;
   state?: string | null;
   completed?: boolean;
+  is_rewatch?: boolean;
   progress_percent?: number | null;
   position_seconds?: number | null;
   duration_seconds?: number | null;
@@ -37,6 +38,7 @@ export interface Stats {
 export interface Settings {
   watch_completion_threshold: number;
   disable_notifications: boolean;
+  skip_rewatch_scrobble: boolean;
   auto_sync_interval: number;
   allow_dirs: string[];
   deny_dirs: string[];

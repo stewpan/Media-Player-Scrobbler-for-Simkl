@@ -30,6 +30,9 @@ Updates live (polls every couple of seconds) — no need to refresh.
 - **Completion threshold** — the percentage of a title you must watch before it's marked
   complete.
 - **Notifications** — turn desktop notifications on or off.
+- **Skip rewatches** — when on (default), items you've already watched (locally or on
+  Simkl) are flagged as a rewatch and not scrobbled again, so your Simkl watch count isn't
+  incremented. Turn it off to count every rewatch.
 - **Auto-sync interval** — how often the offline backlog is synced.
 - **Directory filters** — allow/deny lists controlling which folders are scrobbled.
 - **Simkl account** — sign in via the browser-based device-code flow: click **Connect to

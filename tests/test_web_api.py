@@ -176,7 +176,7 @@ def isolated_settings(tmp_path, monkeypatch):
 def test_settings_get_returns_known_keys(isolated_settings):
     body = _client(FakeContext()).get("/api/settings").get_json()
     assert set(body) == {
-        "watch_completion_threshold", "disable_notifications",
+        "watch_completion_threshold", "disable_notifications", "skip_rewatch_scrobble",
         "auto_sync_interval", "allow_dirs", "deny_dirs",
     }
 

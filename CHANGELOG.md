@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.6.0] - 2026-06-21
+
+### Added
+- **Rewatch detection.** Before scrobbling, the app now checks whether you've already
+  watched the movie/episode — first in the local history, then against your Simkl library
+  (`/sync/all-items`, cached and refreshed only when `/sync/activities` reports a change).
+  When a rewatch is detected it is flagged in the dashboard ("Rewatch" badge) and, with the
+  new `skip_rewatch_scrobble` setting (default on), is **not** re-scrobbled so your Simkl
+  watch count isn't incremented again. Toggle it off in Settings to count rewatches. (#13)
+
 ## [2.5.1] - 2026-06-21
 
 ### Fixed
@@ -67,7 +77,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - macOS VLC window detection, credential loading and Simkl `412` handling, and
   Simkl season-level tracking for multi-season shows/anime.
 
-[Unreleased]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.5.1...HEAD
+[Unreleased]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.6.0...HEAD
+[2.6.0]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.5.1...v2.6.0
 [2.5.1]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.5.0...v2.5.1
 [2.5.0]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.4.1...v2.5.0
 [2.4.1]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.4.0...v2.4.1
