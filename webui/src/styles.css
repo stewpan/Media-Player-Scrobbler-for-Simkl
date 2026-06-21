@@ -84,6 +84,7 @@ body {
 .badge.state-playing { background: rgba(61, 220, 132, 0.15); color: var(--ok); }
 .badge.state-paused { background: rgba(255, 196, 0, 0.15); color: #ffc400; }
 .badge.state-stopped { background: rgba(255, 107, 107, 0.15); color: var(--err); }
+.badge.rewatch { background: rgba(79, 140, 255, 0.18); color: var(--accent-2); }
 
 .progress { height: 8px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
 .progress-fill {

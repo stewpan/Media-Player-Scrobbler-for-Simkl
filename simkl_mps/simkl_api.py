@@ -404,6 +404,59 @@ def add_to_history(payload, client_id, access_token):
         logger.error(f"Simkl API: Error adding {item_description} to history: {e}", exc_info=True)
         return None
 
+
+def get_sync_activities(client_id, access_token):
+    """Fetch the user's last-activity timestamps (GET /sync/activities).
+
+    Used to know when watched data last changed so the rewatch cache can be
+    refreshed only when needed. Returns the parsed dict, or None on failure.
+    """
+    if not client_id or not access_token:
+        return None
+    headers = _add_user_agent({
+        'Content-Type': 'application/json',
+        'simkl-api-key': client_id,
+        'Authorization': f'Bearer {access_token}',
+    })
+    try:
+        response = requests.get(f'{SIMKL_API_BASE_URL}/sync/activities', headers=headers, timeout=15)
+        if response.status_code == 200:
+            return response.json()
+        logger.warning(f"Simkl API: /sync/activities returned {response.status_code}")
+    except requests.exceptions.RequestException as e:
+        logger.warning(f"Simkl API: Error fetching sync activities: {e}")
+    return None
+
+
+def get_watched_items(client_id, access_token, simkl_type):
+    """Fetch the user's watched library for a type (GET /sync/all-items/{type}).
+
+    simkl_type is one of 'movies', 'shows', 'anime'. Returns the list of items
+    under that key (each with ids.simkl and, for shows/anime, seasons/episodes),
+    or an empty list on failure.
+    """
+    if not client_id or not access_token or simkl_type not in ('movies', 'shows', 'anime'):
+        return []
+    headers = _add_user_agent({
+        'Content-Type': 'application/json',
+        'simkl-api-key': client_id,
+        'Authorization': f'Bearer {access_token}',
+    })
+    try:
+        response = requests.get(
+            f'{SIMKL_API_BASE_URL}/sync/all-items/{simkl_type}',
+            headers=headers,
+            params={'extended': 'full'},
+            timeout=30,
+        )
+        if response.status_code == 200:
+            data = response.json() or {}
+            return data.get(simkl_type, []) if isinstance(data, dict) else []
+        logger.warning(f"Simkl API: /sync/all-items/{simkl_type} returned {response.status_code}")
+    except requests.exceptions.RequestException as e:
+        logger.warning(f"Simkl API: Error fetching watched {simkl_type}: {e}")
+    return []
+
 def get_movie_details(simkl_id, client_id, access_token):
     """
     Retrieves detailed movie information from Simkl.

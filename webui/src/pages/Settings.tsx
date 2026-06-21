@@ -93,6 +93,15 @@ export default function Settings() {
           <span>Disable notifications</span>
         </label>
 
+        <label className="field row">
+          <input
+            type="checkbox"
+            checked={settings.skip_rewatch_scrobble}
+            onChange={(e) => save({ skip_rewatch_scrobble: e.target.checked })}
+          />
+          <span>Skip re-scrobbling rewatches (don't count again on Simkl)</span>
+        </label>
+
         <label className="field">
           <span>Auto-sync interval (seconds)</span>
           <input

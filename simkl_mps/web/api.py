@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 _SETTINGS_KEYS = (
     "watch_completion_threshold",
     "disable_notifications",
+    "skip_rewatch_scrobble",
     "auto_sync_interval",
     "allow_dirs",
     "deny_dirs",
@@ -116,7 +117,7 @@ def create_api_blueprint(context):
                     return jsonify({"error": "invalid_value", "key": key}), 400
                 if value < 0:
                     return jsonify({"error": "out_of_range", "key": key}), 400
-            elif key == "disable_notifications":
+            elif key in ("disable_notifications", "skip_rewatch_scrobble"):
                 if not isinstance(value, bool):
                     return jsonify({"error": "invalid_value", "key": key}), 400
             elif key in ("allow_dirs", "deny_dirs"):
