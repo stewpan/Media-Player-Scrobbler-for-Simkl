@@ -80,3 +80,7 @@ node_modules/
 
 # Web UI build output (bundled at release time, built via `npm run build`)
 simkl_mps/web/dist/
+# Web UI generated build artifacts
+*.tsbuildinfo
+webui/vite.config.js
+webui/vite.config.d.ts
