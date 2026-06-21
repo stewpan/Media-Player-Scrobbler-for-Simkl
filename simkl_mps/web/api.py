@@ -89,6 +89,13 @@ def create_api_blueprint(context):
         items = list(pending.values()) if isinstance(pending, dict) else list(pending)
         return jsonify({"items": items, "count": len(items)})
 
+    @api.get("/library")
+    def library():
+        lib = context.get_watched_library() if hasattr(context, "get_watched_library") else None
+        if lib is None:
+            return jsonify({"movies": 0, "shows": 0, "anime": 0, "total": 0, "synced_at": None})
+        return jsonify(lib.stats())
+
     @api.get("/settings")
     def get_settings():
         return jsonify({key: get_setting(key) for key in _SETTINGS_KEYS})

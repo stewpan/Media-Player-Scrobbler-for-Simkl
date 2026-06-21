@@ -48,6 +48,7 @@ function NowPlaying({ status }: { status: Status }) {
 export default function Dashboard() {
   const { data: status } = usePoll(api.status, 2000);
   const { data: stats } = usePoll(api.stats, 10000);
+  const { data: library } = usePoll(api.library, 30000);
 
   return (
     <div className="stack">
@@ -71,6 +72,13 @@ export default function Dashboard() {
           <div className="stat-label">Anime</div>
         </div>
       </div>
+
+      {library && library.total > 0 && (
+        <div className="card muted" style={{ fontSize: "0.88rem" }}>
+          Local Simkl copy (used for rewatch detection): {library.movies} movies · {library.shows} shows · {library.anime} anime
+          {library.synced_at ? ` · synced ${library.synced_at.slice(0, 10)}` : ""}
+        </div>
+      )}
     </div>
   );
 }
