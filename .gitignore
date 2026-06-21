@@ -73,7 +73,10 @@ delete_tag.bat
 testing
 bump_version.bat
 
-# Node artifacts (not used by this Python project)
-package.json
-package-lock.json
+# Node artifacts (root-level; not used by the Python package itself)
+/package.json
+/package-lock.json
 node_modules/
+
+# Web UI build output (bundled at release time, built via `npm run build`)
+simkl_mps/web/dist/
