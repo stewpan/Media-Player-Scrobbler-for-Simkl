@@ -39,7 +39,9 @@ DEFAULT_SETTINGS = {
     "auto_sync_interval": 120,  # Auto sync backlog every 2 minutes by default
     "disable_notifications": False,  # Show all notifications by default
     "allow_dirs": [],
-    "deny_dirs": []
+    "deny_dirs": [],
+    "web_ui_enabled": True,  # Serve the local web dashboard
+    "web_ui_port": 5555,     # Localhost port for the web dashboard (avoids player ports 8080/13579)
 }
 
 def _sanitize_dir_list(value):

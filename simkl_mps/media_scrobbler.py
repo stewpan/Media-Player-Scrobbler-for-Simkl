@@ -869,6 +869,34 @@ class MediaScrobbler:
         return round(percentage, 2) if percentage is not None else None
 
 
+    def get_status(self):
+        """Return a JSON-serializable snapshot of the current tracking state.
+
+        Used by the web dashboard to render the live "now playing" view. Reads
+        only existing in-memory attributes; safe to call at any time.
+        """
+        percentage = self._calculate_percentage(use_position=True)
+        if percentage is None:
+            percentage = self._calculate_percentage(use_accumulated=True)
+        return {
+            "tracking": bool(self.currently_tracking),
+            "raw_title": self.currently_tracking,
+            "title": self.movie_name,
+            "simkl_id": self.simkl_id,
+            "media_type": self.media_type,
+            "season": self.display_season if self.display_season is not None else self.season,
+            "episode": self.display_episode if self.display_episode is not None else self.episode,
+            "state": self.state,
+            "completed": self.completed,
+            "progress_percent": percentage,
+            "position_seconds": self.current_position_seconds,
+            "duration_seconds": self.total_duration_seconds,
+            "watched_seconds": self.watch_time,
+            "filepath": self.current_filepath,
+            "completion_threshold": self.completion_threshold,
+        }
+
+
     def _detect_pause(self, window_info):
         """Detect if playback is paused based on window title keywords."""
         if window_info and window_info.get('title'):

@@ -122,6 +122,7 @@ class SimklScrobbler:
         self.access_token = None
         self.monitor = Monitor(app_data_dir=APP_DATA_DIR)
         self.watch_history_manager = None # Added instance variable
+        self.web_server = None # Embedded local web dashboard (started in start())
         logger.debug("SimklScrobbler instance created.")
 
     def initialize(self):
@@ -195,7 +196,25 @@ class SimklScrobbler:
         logger.info("Starting background backlog synchronization thread...")
         self.monitor.scrobbler.start_offline_sync_thread() # Use default interval
 
+        # Start the embedded web dashboard (best-effort; never blocks scrobbling)
+        self._start_web_server()
+
         return True
+
+    def _start_web_server(self):
+        """Start the local web dashboard if enabled. Failures are non-fatal."""
+        from simkl_mps.config_manager import get_setting
+        if not get_setting('web_ui_enabled', True):
+            logger.info("Web dashboard disabled via settings.")
+            return
+        try:
+            from simkl_mps.web import WebServer
+            port = get_setting('web_ui_port', 5555)
+            self.web_server = WebServer(self, port=port)
+            self.web_server.start()
+        except Exception as e:
+            logger.warning(f"Failed to start web dashboard: {e}", exc_info=True)
+            self.web_server = None
 
     def stop(self):
         """Stops the media monitoring thread gracefully."""
@@ -205,6 +224,9 @@ class SimklScrobbler:
 
         logger.info("Initiating scrobbler shutdown...")
         self.running = False
+        if self.web_server is not None:
+            self.web_server.stop()
+            self.web_server = None
         self.monitor.stop()
         logger.info("Scrobbler shutdown complete.")
 

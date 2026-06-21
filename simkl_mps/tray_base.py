@@ -665,6 +665,17 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
             logger.error(f"Error opening SIMKL history: {e}", exc_info=True)
             self.show_notification("Error", f"Failed to open SIMKL history: {e}")
 
+    def open_dashboard(self, _=None):
+        """Open the local web dashboard in the browser."""
+        port = get_setting('web_ui_port', 5555)
+        url = f"http://127.0.0.1:{port}"
+        logger.info(f"Opening web dashboard at {url}")
+        try:
+            webbrowser.open(url)
+        except Exception as e:
+            logger.error(f"Failed to open web dashboard: {e}")
+            self.show_notification("simkl-mps", "Could not open the dashboard")
+
     def open_watch_history(self, _=None):
         """Open the local watch history page in the browser"""
         logger.info("Attempting to open local watch history page...")
@@ -1244,6 +1255,7 @@ class TrayAppBase(abc.ABC): # Inherit from ABC for abstract methods
                 checked=lambda item: get_setting('disable_notifications', False)
             ),
             pystray.Menu.SEPARATOR,
+            pystray.MenuItem("Open Dashboard", self.open_dashboard),
             pystray.MenuItem("Open Local Watch History", self.open_watch_history),
         )))
         menu_items.append(pystray.Menu.SEPARATOR)
