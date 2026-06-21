@@ -437,7 +437,9 @@ def create_parser():
     parser.add_argument("--debug", action="store_true",
                        help="Enable debug logging in console output.")
                        
-    subparsers = parser.add_subparsers(dest="command", help="Available commands", required=True) # Make command required
+    # Not required so the top-level --version/-v flag works without a subcommand;
+    # main() prints help when no command and no flag is given.
+    subparsers = parser.add_subparsers(dest="command", help="Available commands", required=False)
 
     init_parser = subparsers.add_parser(
         "init",
@@ -508,8 +510,11 @@ def main():
     # Setup logging AFTER argument parsing so --debug can affect console verbosity.
     _setup_logging(debug=getattr(args, 'debug', False))
 
+    # Handle the top-level --version / -v flag (works without a subcommand).
+    if getattr(args, 'version', False):
+        return version_command(args)
+
     # If no command was provided (e.g., just 'simkl-mps'), print help.
-    # Note: 'required=True' in add_subparsers makes this less likely, but good practice.
     if not hasattr(args, 'command') or not args.command:
         parser.print_help()
         return 0

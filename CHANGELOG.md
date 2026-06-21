@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.1] - 2026-06-21
+
+### Fixed
+- `simkl-mps --version` / `-v` no longer errors with "the following arguments are
+  required: command". The top-level version flag now prints version info and exits, and
+  running `simkl-mps` with no command prints help instead of erroring. (#10)
+
 ## [2.4.0] - 2026-06-21
 
 ### Added
@@ -38,5 +45,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - macOS VLC window detection, credential loading and Simkl `412` handling, and
   Simkl season-level tracking for multi-season shows/anime.
 
-[Unreleased]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.4.0...HEAD
+[Unreleased]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.4.1...HEAD
+[2.4.1]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.4.0...v2.4.1
 [2.4.0]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/releases/tag/v2.4.0
