@@ -35,6 +35,14 @@ export interface Stats {
   total: number;
 }
 
+export interface Library {
+  movies: number;
+  shows: number;
+  anime: number;
+  total: number;
+  synced_at?: string | null;
+}
+
 export interface Settings {
   watch_completion_threshold: number;
   disable_notifications: boolean;
@@ -76,6 +84,7 @@ export const api = {
   history: (limit = 200) =>
     getJSON<{ entries: HistoryEntry[]; total: number }>(`/api/history?limit=${limit}`),
   stats: () => getJSON<Stats>("/api/stats"),
+  library: () => getJSON<Library>("/api/library"),
   getSettings: () => getJSON<Settings>("/api/settings"),
   updateSettings: (patch: Partial<Settings>) => postJSON<{ updated: Partial<Settings> }>("/api/settings", patch),
   authStatus: () => getJSON<AuthStatus>("/api/auth/status"),

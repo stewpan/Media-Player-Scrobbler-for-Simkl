@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.7.0] - 2026-06-21
+
+### Added
+- **Local copy of your Simkl watched library.** The app now keeps a local snapshot of all
+  the movies and show/anime episodes you've watched on Simkl
+  (`simkl_watched_library.json` in the data dir), refreshed in the background and only when
+  `/sync/activities` reports a change. Rewatch detection uses this copy as its comparison
+  material, so it now works **offline** and without a network call per scrobble. The
+  dashboard shows the copy's size and last sync, and a new `GET /api/library` exposes it. (#14)
+
 ## [2.6.0] - 2026-06-21
 
 ### Added
@@ -77,7 +87,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - macOS VLC window detection, credential loading and Simkl `412` handling, and
   Simkl season-level tracking for multi-season shows/anime.
 
-[Unreleased]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.6.0...HEAD
+[Unreleased]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.7.0...HEAD
+[2.7.0]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.6.0...v2.7.0
 [2.6.0]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.5.1...v2.6.0
 [2.5.1]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.5.0...v2.5.1
 [2.5.0]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.4.1...v2.5.0

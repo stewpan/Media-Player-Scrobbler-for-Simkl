@@ -29,7 +29,8 @@ from simkl_mps.simkl_api import (
 )
 from simkl_mps.season_resolver import resolve_season_entry
 from simkl_mps.backlog_cleaner import BacklogCleaner
-from simkl_mps.rewatch import RewatchChecker
+from simkl_mps.rewatch import is_rewatch
+from simkl_mps.watched_library import WatchedLibrary
 from simkl_mps.window_detection import parse_movie_title, parse_filename_from_path, is_video_player
 from simkl_mps.media_cache import MediaCache
 
@@ -123,7 +124,7 @@ class MediaScrobbler:
         self.last_scrobble_time = 0
         self.media_cache = MediaCache(app_data_dir=self.app_data_dir)
         self.watch_history = WatchHistoryManager(self.app_data_dir)
-        self.rewatch_checker = RewatchChecker()
+        self.watched_library = WatchedLibrary(self.app_data_dir)
         self._current_is_rewatch = False
         self.last_progress_check = 0
         self.completion_threshold = get_setting('watch_completion_threshold', DEFAULT_THRESHOLD)
@@ -1628,11 +1629,11 @@ class MediaScrobbler:
                  logger.error(f"Failed to resolve episode for anime '{display_title}'. Cannot sync.")
                  return False
 
-        # --- Rewatch detection (local history first, then Simkl) ---
-        self._current_is_rewatch = self.rewatch_checker.is_rewatch(
+        # --- Rewatch detection (local history first, then the local Simkl copy) ---
+        self._current_is_rewatch = is_rewatch(
             self.simkl_id, self.media_type, self.season, self.episode,
             watch_history=getattr(self, 'watch_history', None),
-            client_id=self.client_id, access_token=self.access_token,
+            library=self.watched_library,
         )
         if self._current_is_rewatch:
             logger.info(f"Rewatch detected for '{display_title}' (ID: {self.simkl_id}).")
@@ -2371,10 +2372,20 @@ class MediaScrobbler:
             
         def sync_loop():
             logger.info("Offline sync thread started.")
+            # One-shot: refresh the local copy of the Simkl watched library on startup.
+            try:
+                self.watched_library.ensure_synced(self.client_id, self.access_token, force=True)
+            except Exception as e:
+                logger.debug(f"[Offline Sync Thread] initial watched-library sync error: {e}")
             while True:
                 try:
                     # Check internet connection before attempting to get pending items
                     if is_internet_connected():
+                        # Keep the local copy of the Simkl watched library current.
+                        try:
+                            self.watched_library.ensure_synced(self.client_id, self.access_token)
+                        except Exception as e:
+                            logger.debug(f"[Offline Sync Thread] watched-library sync error: {e}")
                         if self.backlog_cleaner.has_pending_items(): # Efficient check
                             logger.info("[Offline Sync Thread] Internet detected. Checking backlog...")
                             result = self.process_backlog() # process_backlog itself checks connection again

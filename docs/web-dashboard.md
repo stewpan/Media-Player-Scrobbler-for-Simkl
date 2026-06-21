@@ -32,7 +32,9 @@ Updates live (polls every couple of seconds) — no need to refresh.
 - **Notifications** — turn desktop notifications on or off.
 - **Skip rewatches** — when on (default), items you've already watched (locally or on
   Simkl) are flagged as a rewatch and not scrobbled again, so your Simkl watch count isn't
-  incremented. Turn it off to count every rewatch.
+  incremented. Turn it off to count every rewatch. The app keeps a **local copy of your
+  Simkl watched library** (`simkl_watched_library.json`), refreshed in the background, which
+  is used as the comparison material and lets rewatch detection work offline.
 - **Auto-sync interval** — how often the offline backlog is synced.
 - **Directory filters** — allow/deny lists controlling which folders are scrobbled.
 - **Simkl account** — sign in via the browser-based device-code flow: click **Connect to

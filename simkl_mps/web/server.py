@@ -64,6 +64,10 @@ class _ScrobblerContext:
         scrobbler = self.get_scrobbler()
         return getattr(scrobbler, "backlog_cleaner", None) if scrobbler else None
 
+    def get_watched_library(self):
+        scrobbler = self.get_scrobbler()
+        return getattr(scrobbler, "watched_library", None) if scrobbler else None
+
 
 def create_app(context, dist_dir=DIST_DIR):
     """Create the Flask application serving the API and the SPA."""
