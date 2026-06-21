@@ -16,7 +16,7 @@
         <link rel="prev" href="../configuration/">
       
       
-        <link rel="next" href="../media-players/">
+        <link rel="next" href="../web-dashboard/">
       
       
         
@@ -439,6 +439,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#web-dashboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        🌐 Web Dashboard
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#tray-status-icons" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -475,6 +486,33 @@
   
 </nav>
       
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../web-dashboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Web Dashboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -707,6 +745,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#web-dashboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        🌐 Web Dashboard
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#tray-status-icons" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -809,6 +858,21 @@
 - View statistics and trends (charts, breakdowns)
 - Switch between grid/list views and dark/light themes</p>
 <p>See <a href="../watch-history/">Local Watch History</a> for full details.</p>
+<h2 id="web-dashboard">🌐 Web Dashboard<a class="headerlink" href="#web-dashboard" title="Permanent link">&para;</a></h2>
+<p>MPS for SIMKL also runs a small <strong>local web dashboard</strong> in your browser while the app is
+running. Open it from the tray menu (<strong>Open Dashboard</strong>) or visit
+<strong><code>http://127.0.0.1:5555</code></strong>.</p>
+<ul>
+<li><strong>Dashboard</strong> — live "now playing" with progress, plus your watch-count stats.</li>
+<li><strong>History</strong> — search and filter everything you've watched.</li>
+<li><strong>Settings</strong> — completion threshold, notifications, auto-sync interval, directory
+  filters, and Simkl sign-in (a browser-based PIN flow).</li>
+</ul>
+<p>The dashboard is <strong>localhost-only</strong> (reachable only from this computer) and needs no
+password. You can change the port or turn it off with the <code>web_ui_port</code> / <code>web_ui_enabled</code>
+settings. If you installed from source rather than a packaged build, build the UI once with
+<code>cd webui &amp;&amp; npm install &amp;&amp; npm run build</code>.</p>
+<p>See the <a href="../web-dashboard/">Web Dashboard guide</a> for full details.</p>
 <h2 id="tray-status-icons">🔔 Tray Status Icons<a class="headerlink" href="#tray-status-icons" title="Permanent link">&para;</a></h2>
 <p>MPS for SIMKL uses the system tray/notification area to show its current status across all platforms:</p>
 <table>
@@ -850,6 +914,7 @@
 - <strong>Retry Last Scrobble:</strong> Clears cache for the active file and attempts to re-identify and scrobble it. Use when the wrong title/episode appears.
 - <strong>Sync Backlog Now:</strong> Immediately processes any offline scrobbles waiting in backlog.
 - <strong>Completion Threshold:</strong> Quickly switch between preset watch thresholds (65%, 80%, 90%) or define a custom percentage.
+- <strong>Open Dashboard:</strong> Open the local <a href="../web-dashboard/">web dashboard</a> in your browser.
 - <strong>Open Local Watch History:</strong> Browse your tracked movies, shows, and anime in the local viewer.</p>
 <p><strong>SIMKL</strong> - Account and service management:
 - <strong>Authenticate / Re-authenticate:</strong> Sign in to SIMKL or refresh an expired token.
@@ -912,7 +977,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="February 13, 2026 15:09:43 UTC">February 13, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="June 21, 2026 08:27:35 UTC">June 21, 2026</span>
   </span>
 
     
