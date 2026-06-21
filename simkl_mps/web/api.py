@@ -9,7 +9,19 @@ import logging
 
 from flask import Blueprint, jsonify, request
 
+from simkl_mps.config_manager import get_setting, set_setting, _sanitize_dir_list
+
 logger = logging.getLogger(__name__)
+
+# Only these settings may be read/written via the web UI. Destructive actions
+# (clear/reset) and daemon start/stop are intentionally excluded in this version.
+_SETTINGS_KEYS = (
+    "watch_completion_threshold",
+    "disable_notifications",
+    "auto_sync_interval",
+    "allow_dirs",
+    "deny_dirs",
+)
 
 
 def create_api_blueprint(context):
@@ -75,5 +87,62 @@ def create_api_blueprint(context):
         pending = cleaner.get_pending() or {}
         items = list(pending.values()) if isinstance(pending, dict) else list(pending)
         return jsonify({"items": items, "count": len(items)})
+
+    @api.get("/settings")
+    def get_settings():
+        return jsonify({key: get_setting(key) for key in _SETTINGS_KEYS})
+
+    @api.post("/settings")
+    def update_settings():
+        payload = request.get_json(silent=True) or {}
+        unknown = [k for k in payload if k not in _SETTINGS_KEYS]
+        if unknown:
+            return jsonify({"error": "unknown_keys", "keys": unknown}), 400
+
+        applied = {}
+        dirs_changed = False
+        for key, value in payload.items():
+            if key == "watch_completion_threshold":
+                try:
+                    value = int(value)
+                except (TypeError, ValueError):
+                    return jsonify({"error": "invalid_value", "key": key}), 400
+                if not (1 <= value <= 100):
+                    return jsonify({"error": "out_of_range", "key": key}), 400
+            elif key == "auto_sync_interval":
+                try:
+                    value = int(value)
+                except (TypeError, ValueError):
+                    return jsonify({"error": "invalid_value", "key": key}), 400
+                if value < 0:
+                    return jsonify({"error": "out_of_range", "key": key}), 400
+            elif key == "disable_notifications":
+                if not isinstance(value, bool):
+                    return jsonify({"error": "invalid_value", "key": key}), 400
+            elif key in ("allow_dirs", "deny_dirs"):
+                value = _sanitize_dir_list(value)
+                dirs_changed = True
+            set_setting(key, value)
+            applied[key] = value
+
+        if dirs_changed:
+            scrobbler = context.get_scrobbler()
+            if scrobbler is not None and hasattr(scrobbler, "signal_dir_filters_update"):
+                try:
+                    scrobbler.signal_dir_filters_update()
+                except Exception as e:  # pragma: no cover - best-effort signal
+                    logger.debug(f"Failed to signal dir filter update: {e}")
+
+        return jsonify({"updated": applied})
+
+    @api.get("/auth/status")
+    def auth_status():
+        return jsonify(context.get_auth_manager().status())
+
+    @api.post("/auth/start")
+    def auth_start():
+        result = context.get_auth_manager().start()
+        ok = result.get("started") or result.get("reason") == "already_in_progress"
+        return jsonify(result), (200 if ok else 400)
 
     return api
