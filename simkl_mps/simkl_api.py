@@ -864,6 +864,114 @@ def pin_auth_flow(client_id, redirect_uri="urn:ietf:wg:oauth:2.0:oob"):
     print("[ERROR] Authentication timed out. Please try again.")
     return None
 
+def request_pin(client_id, redirect_uri="urn:ietf:wg:oauth:2.0:oob"):
+    """Step 1 of the device-code flow: request a PIN/user code (non-blocking).
+
+    Returns a dict ``{user_code, verification_url, pin_url, expires_in, interval}``
+    on success, or ``None`` on failure. Used by the web dashboard so it can show
+    the code and poll asynchronously; the tray uses pin_auth_flow() directly.
+    """
+    if not is_internet_connected():
+        logger.error("Cannot start authentication flow: no internet connection")
+        return None
+    try:
+        headers = _add_user_agent({"Content-Type": "application/json"})
+        resp = requests.get(
+            f"{SIMKL_API_BASE_URL}/oauth/pin",
+            params={"client_id": client_id, "redirect": redirect_uri},
+            headers=headers,
+            timeout=10,
+        )
+        if is_client_id_failed_response(resp):
+            print_client_id_setup_instructions("Simkl authentication")
+            return None
+        resp.raise_for_status()
+        data = resp.json()
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Failed to request Simkl PIN: {e}", exc_info=True)
+        return None
+
+    user_code = data.get("user_code")
+    if not user_code:
+        logger.error("Simkl PIN response missing user_code")
+        return None
+    return {
+        "user_code": user_code,
+        "verification_url": data.get("verification_url"),
+        "pin_url": f"https://simkl.com/pin/{user_code}",
+        "expires_in": data.get("expires_in", 900),
+        "interval": data.get("interval", 5),
+    }
+
+
+def poll_pin_once(user_code, client_id):
+    """One poll of the device-code endpoint.
+
+    Returns a dict with ``status`` in
+    {"authorized", "pending", "slow_down", "error"} and, when authorized,
+    ``access_token``.
+    """
+    try:
+        headers = _add_user_agent({"Content-Type": "application/json"})
+        poll = requests.get(
+            f"{SIMKL_API_BASE_URL}/oauth/pin/{user_code}",
+            params={"client_id": client_id},
+            headers=headers,
+            timeout=10,
+        )
+        if is_client_id_failed_response(poll):
+            return {"status": "error", "message": "client_id_failed"}
+        if poll.status_code != 200:
+            return {"status": "pending"}
+        result = poll.json()
+    except requests.exceptions.RequestException as e:
+        logger.warning(f"Network error during PIN poll: {e}")
+        return {"status": "pending"}
+
+    if result.get("result") == "OK" and result.get("access_token"):
+        return {"status": "authorized", "access_token": result["access_token"]}
+    if result.get("result") == "KO":
+        msg = result.get("message", "")
+        if msg == "Authorization pending":
+            return {"status": "pending"}
+        if msg == "Slow down":
+            return {"status": "slow_down"}
+        return {"status": "error", "message": msg}
+    return {"status": "pending"}
+
+
+def finalize_authentication(access_token, client_id):
+    """Fetch the user id for a new token and persist both to the env file.
+
+    Returns the user id (or ``None`` if it couldn't be determined). The token is
+    saved regardless so the session can use it.
+    """
+    from simkl_mps.credentials import get_env_file_path
+
+    user_id = None
+    try:
+        auth_headers = _add_user_agent({
+            "Content-Type": "application/json",
+            "simkl-api-key": client_id,
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/json",
+        })
+        account_resp = requests.get(
+            f"{SIMKL_API_BASE_URL}/users/account", headers=auth_headers, timeout=10
+        )
+        if account_resp.status_code == 200:
+            user_id = account_resp.json().get("id")
+        if not user_id:
+            settings = get_user_settings(client_id, access_token)
+            if settings and settings.get("user_id"):
+                user_id = settings.get("user_id")
+    except Exception as e:
+        logger.warning(f"Failed to retrieve user ID during web authentication: {e}")
+
+    _save_access_token(get_env_file_path(), access_token, user_id)
+    return user_id
+
+
 def _save_access_token(env_path, access_token, user_id=None):
     """
     Helper function to save access token and user ID to .env file

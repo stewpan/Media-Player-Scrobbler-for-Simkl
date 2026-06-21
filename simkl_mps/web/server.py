@@ -33,6 +33,21 @@ class _ScrobblerContext:
 
     def __init__(self, scrobbler_app):
         self._app = scrobbler_app
+        from simkl_mps.web.auth import AuthManager
+        self._auth = AuthManager(on_authenticated=self._on_authenticated)
+
+    def get_auth_manager(self):
+        return self._auth
+
+    def _on_authenticated(self, token, user_id):
+        """Propagate a freshly obtained token to the running app."""
+        try:
+            self._app.access_token = token
+            monitor = getattr(self._app, "monitor", None)
+            if monitor is not None and hasattr(monitor, "set_credentials"):
+                monitor.set_credentials(getattr(self._app, "client_id", None), token)
+        except Exception as e:  # pragma: no cover - best-effort propagation
+            logger.debug(f"Failed to propagate new access token: {e}")
 
     def get_scrobbler(self):
         monitor = getattr(self._app, "monitor", None)

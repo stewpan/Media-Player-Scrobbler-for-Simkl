@@ -35,16 +35,33 @@ class FakeScrobbler:
     def __init__(self, status, backlog):
         self._status = status
         self.backlog_cleaner = backlog
+        self.dir_filters_signalled = 0
 
     def get_status(self):
         return dict(self._status)
 
+    def signal_dir_filters_update(self):
+        self.dir_filters_signalled += 1
+
+
+class FakeAuthManager:
+    def __init__(self, status=None, start_result=None):
+        self._status = status or {"authenticated": False, "in_progress": False}
+        self._start_result = start_result or {"started": True, "user_code": "ABCD", "in_progress": True}
+
+    def status(self):
+        return self._status
+
+    def start(self):
+        return self._start_result
+
 
 class FakeContext:
-    def __init__(self, scrobbler=None, history=None, running=False):
+    def __init__(self, scrobbler=None, history=None, running=False, auth=None):
         self._scrobbler = scrobbler
         self._history = history
         self._running = running
+        self._auth = auth or FakeAuthManager()
 
     def get_scrobbler(self):
         return self._scrobbler
@@ -57,6 +74,9 @@ class FakeContext:
 
     def get_backlog_cleaner(self):
         return self._scrobbler.backlog_cleaner if self._scrobbler else None
+
+    def get_auth_manager(self):
+        return self._auth
 
 
 HISTORY = [
@@ -142,6 +162,71 @@ def test_spa_serves_guidance_when_dist_missing():
 
 
 # --- MediaScrobbler.get_status() ----------------------------------------------
+
+# --- /api/settings ------------------------------------------------------------
+
+@pytest.fixture
+def isolated_settings(tmp_path, monkeypatch):
+    import simkl_mps.config_manager as cm
+    monkeypatch.setattr(cm, "SETTINGS_DIR", tmp_path)
+    monkeypatch.setattr(cm, "SETTINGS_FILE", tmp_path / "settings.json")
+    return tmp_path
+
+
+def test_settings_get_returns_known_keys(isolated_settings):
+    body = _client(FakeContext()).get("/api/settings").get_json()
+    assert set(body) == {
+        "watch_completion_threshold", "disable_notifications",
+        "auto_sync_interval", "allow_dirs", "deny_dirs",
+    }
+
+
+def test_settings_post_persists_threshold(isolated_settings):
+    client = _client(FakeContext())
+    resp = client.post("/api/settings", json={"watch_completion_threshold": 90})
+    assert resp.status_code == 200
+    assert client.get("/api/settings").get_json()["watch_completion_threshold"] == 90
+
+
+def test_settings_post_rejects_unknown_key(isolated_settings):
+    resp = _client(FakeContext()).post("/api/settings", json={"reset_everything": True})
+    assert resp.status_code == 400
+    assert resp.get_json()["error"] == "unknown_keys"
+
+
+def test_settings_post_rejects_out_of_range_threshold(isolated_settings):
+    resp = _client(FakeContext()).post("/api/settings", json={"watch_completion_threshold": 250})
+    assert resp.status_code == 400
+
+
+def test_settings_dir_change_signals_scrobbler(isolated_settings):
+    scrobbler = FakeScrobbler({}, FakeBacklog({}))
+    client = _client(FakeContext(scrobbler=scrobbler))
+    client.post("/api/settings", json={"allow_dirs": ["/data/movies"]})
+    assert scrobbler.dir_filters_signalled == 1
+
+
+# --- /api/auth ----------------------------------------------------------------
+
+def test_auth_status_endpoint():
+    auth = FakeAuthManager(status={"authenticated": True, "user_id": 42, "in_progress": False})
+    body = _client(FakeContext(auth=auth)).get("/api/auth/status").get_json()
+    assert body["authenticated"] is True
+    assert body["user_id"] == 42
+
+
+def test_auth_start_endpoint():
+    auth = FakeAuthManager(start_result={"started": True, "user_code": "WXYZ", "in_progress": True})
+    resp = _client(FakeContext(auth=auth)).post("/api/auth/start")
+    assert resp.status_code == 200
+    assert resp.get_json()["user_code"] == "WXYZ"
+
+
+def test_auth_start_missing_client_id_returns_400():
+    auth = FakeAuthManager(start_result={"started": False, "reason": "missing_client_id"})
+    resp = _client(FakeContext(auth=auth)).post("/api/auth/start")
+    assert resp.status_code == 400
+
 
 def test_webserver_bind_conflict_is_graceful():
     # Occupy a port, then a WebServer on the same port must fail soft (False),
