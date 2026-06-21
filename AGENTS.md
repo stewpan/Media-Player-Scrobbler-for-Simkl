@@ -11,7 +11,7 @@ This document captures the repository's context, architecture, architectural dec
 
 ## 🛠️ Session Progress & Bugs Resolved
 
-In this session, we investigated and successfully resolved three major bugs and wrote robust tests with **100% test coverage** (all 31 unit and integration tests are passing).
+In this session, we investigated and successfully resolved three major bugs and wrote robust tests for the affected areas (all 27 unit and integration tests are passing).
 
 ### 1. Duplicate Process Instances
 * **Problem:** Hangups during process lifecycle led to multiple instances of the app running simultaneously because existing instances were not properly killed on startup/exit.
