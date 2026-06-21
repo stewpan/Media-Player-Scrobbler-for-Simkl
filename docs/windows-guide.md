@@ -144,9 +144,9 @@ To change startup behavior later:
 
 ### Windows-Specific File Locations
 
-- **Configuration file**: `%%USERPROFILE%\kavin\simkl-mps\.simkl_mps.env`
-- **Log files**: `%USERPROFILE%\kavin\simkl-mps\simkl_mps.log`
-- **Backlog**: `%USERPROFILE%\kavin\simkl-mps\backlog.json`
+- **Configuration file**: `%%USERPROFILE%\.simkl-mps\.simkl_mps.env`
+- **Log files**: `%USERPROFILE%\.simkl-mps\simkl_mps.log`
+- **Backlog**: `%USERPROFILE%\.simkl-mps\backlog.json`
 
 ## 🔄 Windows Update System
 

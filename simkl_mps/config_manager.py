@@ -8,24 +8,21 @@ log = logging.getLogger(__name__)
 
 APP_NAME = "simkl-mps" # Define app name for config directory
 
-# Default user subdirectory
-DEFAULT_USER_SUBDIR = "kavin"  # Updated from kavinthangavel
-USER_SUBDIR = DEFAULT_USER_SUBDIR  # Use default initially
+# Canonical data directory: a single hidden folder in the user's home
+# (~/.simkl-mps). Migration from older developer-named locations
+# (~/kavin/simkl-mps, ~/kavinthangavel/simkl-mps) is handled in
+# simkl_mps/migration.py and runs automatically on credentials import.
+APP_DIR_NAME = ".simkl-mps"
 
 # Initialize settings directory paths
-def initialize_paths(custom_subdir=None):
-    """Initialize or update app paths with optional custom subdirectory"""
-    global USER_SUBDIR, SETTINGS_DIR, SETTINGS_FILE, APP_DATA_DIR
-    
-    # Update USER_SUBDIR if custom_subdir is provided
-    if custom_subdir:
-        USER_SUBDIR = custom_subdir
-    
-    # Set up the various directories and files
-    APP_DATA_DIR = Path.home() / USER_SUBDIR / APP_NAME
+def initialize_paths(custom_dir=None):
+    """Initialize or update app paths. Pass custom_dir to override the folder name."""
+    global SETTINGS_DIR, SETTINGS_FILE, APP_DATA_DIR
+
+    APP_DATA_DIR = Path.home() / (custom_dir or APP_DIR_NAME)
     SETTINGS_DIR = APP_DATA_DIR  # Keep settings in the same directory
     SETTINGS_FILE = SETTINGS_DIR / "settings.json"
-    
+
     return APP_DATA_DIR
 
 # Initialize with default paths
@@ -35,7 +32,6 @@ APP_DATA_DIR = initialize_paths()
 DEFAULT_THRESHOLD = 80
 DEFAULT_SETTINGS = {
     "watch_completion_threshold": DEFAULT_THRESHOLD,
-    "user_subdir": DEFAULT_USER_SUBDIR,
     "auto_sync_interval": 120,  # Auto sync backlog every 2 minutes by default
     "disable_notifications": False,  # Show all notifications by default
     "allow_dirs": [],
@@ -150,30 +146,11 @@ def set_setting(key, value):
 
     if key in ('allow_dirs', 'deny_dirs'):
         value = _sanitize_dir_list(value)
-    
-    log.debug(f"ConfigManager: set_setting proceeding for key='{key}' before user_subdir check.")
-    if key == 'user_subdir' and value != get_setting('user_subdir'):
-        log.info(f"Updating user subdirectory from '{get_setting('user_subdir')}' to '{value}'")
-        # Reinitialize paths with the new user_subdir
-        initialize_paths(value)
-        
-        # Now we need to reload settings to get all the settings from the new location
-        settings = load_settings()  # This will now load from (or create at) the new location
-        settings[key] = value # set the new value
-        log.debug(f"ConfigManager: set_setting (user_subdir branch) - settings to save: {settings}")
-        save_settings(settings)     # This will save to the new location
-        
-        log.info(f"Updated app data directory to: {APP_DATA_DIR}")
-        return
-    else:
-        # This branch is taken if key is not 'user_subdir' OR if it is 'user_subdir' but the value is not changing.
-        # For any key (including 'user_subdir' if its value isn't changing, though less critical there),
-        # load current settings, update the specific key, and save.
-        current_settings = load_settings()
-        current_settings[key] = value
-        log.debug(f"ConfigManager: set_setting (non-user_subdir or non-changing user_subdir) - settings to save: {current_settings}")
-        save_settings(current_settings)
-        log.info(f"ConfigManager: Setting for '{key}' updated and saved.")
+
+    current_settings = load_settings()
+    current_settings[key] = value
+    save_settings(current_settings)
+    log.info(f"ConfigManager: Setting for '{key}' updated and saved.")
 
 def get_app_data_dir():
     """Returns the current app data directory path."""

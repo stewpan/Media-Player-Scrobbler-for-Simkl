@@ -17,9 +17,9 @@ Typical locations:
 
 | Platform | Typical Data Location |
 |----------|------------------------|
-| Windows  | `%USERPROFILE%\kavin\simkl-mps\` |
-| macOS    | `~/kavin/simkl-mps/` |
-| Linux    | `~/.local/share/kavin/simkl-mps/` |
+| Windows  | `%USERPROFILE%\.simkl-mps\` |
+| macOS    | `~/.simkl-mps/` |
+| Linux    | `~/.simkl-mps/` |
 
 If you are upgrading from older versions, migration handles older paths automatically.
 

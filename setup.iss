@@ -4,7 +4,7 @@
 #define MyAppURL "https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl"
 #define MyAppExeName "MPSS"
 #define MyAppTrayName "MPS for Simkl"
-#define MyAppVersion "2.4.1"
+#define MyAppVersion "2.5.0"
 #define MyAppDescription "Automatically track and scrobble media you watch to SIMKL"
 #define MyAppCopyright "Copyright (C) 2025 kavin"
 #define MyAppUpdateURL "https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/releases"
@@ -93,12 +93,12 @@ Source: "LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 ; Start Menu entries - simplified to just have "Start Scrobbler"
-Name: "{group}\{#MyAppShortName}"; Filename: "{app}\{#MyAppExeName}"; Parameters: "start"; Comment: "Start SIMKL scrobbler in the background"; AppUserModelID: "kavin.simkl-mps"
+Name: "{group}\{#MyAppShortName}"; Filename: "{app}\{#MyAppExeName}"; Parameters: "start"; Comment: "Start SIMKL scrobbler in the background"; AppUserModelID: "simkl-mps"
 Name: "{group}\{cm:UninstallProgram,{#MyAppShortName}}"; Filename: "{uninstallexe}"
 
 ; Desktop icon - simplified to just one "Start Scrobbler" icon
-Name: "{commondesktop}\{#MyAppShortName}"; Filename: "{app}\{#MyAppExeName}"; Parameters: "start"; Tasks: desktopicon; Check: IsAdminInstallMode; Comment: "Start SIMKL scrobbler in the background"; AppUserModelID: "kavin.simkl-mps"
-Name: "{userdesktop}\{#MyAppShortName}"; Filename: "{app}\{#MyAppExeName}"; Parameters: "start"; Tasks: desktopicon; Check: not IsAdminInstallMode; Comment: "Start SIMKL scrobbler in the background"; AppUserModelID: "kavin.simkl-mps"
+Name: "{commondesktop}\{#MyAppShortName}"; Filename: "{app}\{#MyAppExeName}"; Parameters: "start"; Tasks: desktopicon; Check: IsAdminInstallMode; Comment: "Start SIMKL scrobbler in the background"; AppUserModelID: "simkl-mps"
+Name: "{userdesktop}\{#MyAppShortName}"; Filename: "{app}\{#MyAppExeName}"; Parameters: "start"; Tasks: desktopicon; Check: not IsAdminInstallMode; Comment: "Start SIMKL scrobbler in the background"; AppUserModelID: "simkl-mps"
 
 ; Startup entry - renamed to "MPS for Simkl.exe" with specific icon
 Name: "{userstartup}\{#MyAppShortName}"; Filename: "{app}\{#MyAppTrayName}"; Parameters: "start"; IconFilename: "{app}\{#MyAppTrayName}"; Tasks: startupicon; Check: not IsAdminInstallMode; Comment: "Start SIMKL scrobbler in the background"
@@ -139,7 +139,7 @@ Type: filesandordirs; Name: "{app}\*.pyd"; Check: not IsFirstInstall
 const
   MyAppIdGuid = '{3FF84A4E-B9C2-4F49-A8DE-5F7EA15F5D88}'; // Define the AppId GUID as a script constant
   CONFIG_FOLDER = 'simkl-mps';
-  TASK_NAME = 'kavin.MediaPlayerScrobblerForSIMKL.UpdateCheck';
+  TASK_NAME = 'simkl-mps.MediaPlayerScrobblerForSIMKL.UpdateCheck';
   SILENT_ALIAS_MARKER = '/_mpss_silent_alias_applied';
 
 type
@@ -446,17 +446,19 @@ begin
       LocalAppDataDir := GetEnv('LOCALAPPDATA');
       
       // All possible config directories to check and remove - Windows specific
-      SetArrayLength(ConfigDirs, 6);
-      
-      // Primary location: C:\Users\username\kavin\simkl-mps
-      ConfigDirs[0] := UserProfileDir + '\kavin\' + CONFIG_FOLDER;
-      
+      SetArrayLength(ConfigDirs, 7);
+
+      // Primary (current) location: C:\Users\username\.simkl-mps
+      ConfigDirs[0] := UserProfileDir + '\.simkl-mps';
+      // Legacy location from older versions: C:\Users\username\kavin\simkl-mps
+      ConfigDirs[1] := UserProfileDir + '\kavin\' + CONFIG_FOLDER;
+
       // Other possible locations - using environment variables instead of constants
-      ConfigDirs[1] := LocalAppDataDir + '\' + CONFIG_FOLDER;
-      ConfigDirs[2] := AppDataDir + '\' + CONFIG_FOLDER;
-      ConfigDirs[3] := UserProfileDir + '\' + CONFIG_FOLDER; 
-      ConfigDirs[4] := UserProfileDir + '\AppData\Local\' + CONFIG_FOLDER;
-      ConfigDirs[5] := UserProfileDir + '\Documents\' + CONFIG_FOLDER;
+      ConfigDirs[2] := LocalAppDataDir + '\' + CONFIG_FOLDER;
+      ConfigDirs[3] := AppDataDir + '\' + CONFIG_FOLDER;
+      ConfigDirs[4] := UserProfileDir + '\' + CONFIG_FOLDER;
+      ConfigDirs[5] := UserProfileDir + '\AppData\Local\' + CONFIG_FOLDER;
+      ConfigDirs[6] := UserProfileDir + '\Documents\' + CONFIG_FOLDER;
       
       // Loop through all possible locations and delete them if they exist
       for i := 0 to GetArrayLength(ConfigDirs) - 1 do

@@ -40,9 +40,9 @@ This guide helps you solve common problems with MPS for SIMKL.
 ## Diagnostics
 - Run with debug logging: `simkl-mps tray --debug`.
 - Check logs for errors:
-  - Windows: `%USERPROFILE%\kavin\simkl-mps\simkl_mps.log`
-  - macOS: `~/kavin/simkl-mps/simkl_mps.log`
-  - Linux: `~/kavin/simkl-mps/simkl_mps.log`
+  - Windows: `%USERPROFILE%\.simkl-mps\simkl_mps.log`
+  - macOS: `~/.simkl-mps/simkl_mps.log`
+  - Linux: `~/.simkl-mps/simkl_mps.log`
 
 ## Still Need Help?
 - Check [GitHub Issues](https://github.com/ByteTrix/media-player-scrobbler-for-simkl/issues).

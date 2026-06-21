@@ -72,7 +72,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 logger.info("="*20 + " Application Start " + "="*20)
 logger.info(f"Using Application Data Directory: {APP_DATA_DIR}")
-logger.info(f"User subdirectory: {get_setting('user_subdir')}")
 if file_handler:
     logger.info(f"Logging to file: {log_file_path}")
 else:

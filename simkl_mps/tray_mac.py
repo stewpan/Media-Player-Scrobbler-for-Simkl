@@ -385,7 +385,7 @@ class TrayAppMac(TrayAppBase):
             os.makedirs(launch_agents_dir, exist_ok=True)
             
             # Path to the LaunchAgent plist
-            plist_path = launch_agents_dir / "com.kavin.simkl-mps.updater.plist"
+            plist_path = launch_agents_dir / "com.simkl-mps.updater.plist"
             
             # Only create the LaunchAgent if it doesn't exist
             if not plist_path.exists() and self.is_first_run:
@@ -399,7 +399,7 @@ class TrayAppMac(TrayAppBase):
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.kavin.simkl-mps.updater</string>
+    <string>com.simkl-mps.updater</string>
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>
