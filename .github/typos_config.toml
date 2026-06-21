@@ -9,3 +9,5 @@ extend-ignore-re = [
 # Add exceptions to the dictionary
 datas = "datas"
 gir = "gir"
+# Ordinal suffix used in season-matching regex/logic (e.g. "2nd", "3rd")
+nd = "nd"
