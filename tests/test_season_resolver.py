@@ -1,7 +1,9 @@
 """Tests for the season resolver and end-to-end Jujutsu Kaisen S03E04 resolution."""
+import json
 from unittest.mock import MagicMock, patch
 import pytest
 
+import simkl_mps.season_resolver as season_resolver
 from simkl_mps.season_resolver import (
     resolve_season_entry,
     verify_episode_exists,
@@ -13,8 +15,14 @@ from simkl_mps.media_scrobbler import MediaScrobbler
 
 
 @pytest.fixture(autouse=True)
-def clean_cache():
-    clear_resolver_cache()
+def clean_cache(tmp_path, monkeypatch):
+    # Redirect the persistent cache to a temp dir so tests never touch the real
+    # app data directory, and start each test from a clean, unloaded state.
+    monkeypatch.setattr(season_resolver, "_CACHE_DIR_OVERRIDE", str(tmp_path))
+    monkeypatch.setattr(season_resolver, "_disk_loaded", False)
+    _resolver_cache.clear()
+    yield
+    _resolver_cache.clear()
 
 
 def test_title_matches_season():
@@ -222,3 +230,80 @@ def test_jujutsu_kaisen_s03e04_integration_end_to_end(mock_inet, mock_get_episod
         "jujutsu kaisen s03e04",
         "simkl_search_resolver_anime"
     )
+
+
+# --- Persistent cache tests ---------------------------------------------------
+
+def _entry(simkl_id=333333, title="Jujutsu Kaisen Season 3", media_type="anime"):
+    return {
+        "simkl_id": simkl_id,
+        "title": title,
+        "type": media_type,
+        "raw_result": {"title": title, "ids": {"simkl": simkl_id}},
+    }
+
+
+def test_save_and_load_roundtrip(tmp_path):
+    # Populate memory and persist to disk.
+    _resolver_cache[("jujutsu kaisen", 3, "anime")] = _entry()
+    season_resolver._save_cache_to_disk()
+
+    cache_file = season_resolver._cache_file_path()
+    assert cache_file.exists()
+    on_disk = json.loads(cache_file.read_text(encoding="utf-8"))
+    assert on_disk["entries"][0]["key"] == ["jujutsu kaisen", 3, "anime"]
+
+    # Wipe memory (without touching disk) and reload.
+    _resolver_cache.clear()
+    season_resolver._load_cache_from_disk()
+    assert _resolver_cache[("jujutsu kaisen", 3, "anime")]["simkl_id"] == 333333
+
+
+@patch("simkl_mps.season_resolver.query_simkl_search")
+@patch("simkl_mps.season_resolver.verify_episode_exists")
+def test_resolve_persists_to_disk(mock_verify, mock_search):
+    mock_verify.return_value = True
+    mock_search.side_effect = [
+        [{"title": "Jujutsu Kaisen Season 3", "ids": {"simkl": 333333}}],
+        [],
+        [],
+    ]
+
+    resolve_season_entry("Jujutsu Kaisen", 3, 4, "cid", "token", media_type="anime")
+
+    cache_file = season_resolver._cache_file_path()
+    assert cache_file.exists()
+    on_disk = json.loads(cache_file.read_text(encoding="utf-8"))
+    keys = [tuple(e["key"]) for e in on_disk["entries"]]
+    assert ("jujutsu kaisen", 3, "anime") in keys
+
+
+def test_clear_removes_disk_file():
+    _resolver_cache[("jujutsu kaisen", 3, "anime")] = _entry()
+    season_resolver._save_cache_to_disk()
+    cache_file = season_resolver._cache_file_path()
+    assert cache_file.exists()
+
+    clear_resolver_cache()
+    assert not cache_file.exists()
+    assert _resolver_cache == {}
+
+
+@patch("simkl_mps.season_resolver.query_simkl_search")
+@patch("simkl_mps.season_resolver.verify_episode_exists")
+def test_cache_survives_new_session(mock_verify, mock_search):
+    # Simulate a previous session having written the cache file.
+    _resolver_cache[("jujutsu kaisen", 3, "anime")] = _entry()
+    season_resolver._save_cache_to_disk()
+
+    # Fresh session: nothing in memory, disk not yet loaded.
+    _resolver_cache.clear()
+    season_resolver._disk_loaded = False
+
+    result = resolve_season_entry("Jujutsu Kaisen", 3, 4, "cid", "token", media_type="anime")
+
+    # Served from the persisted cache: no network search/verify performed.
+    assert result is not None
+    assert result["simkl_id"] == 333333
+    mock_search.assert_not_called()
+    mock_verify.assert_not_called()

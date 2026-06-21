@@ -2,9 +2,12 @@
 Season resolver for Simkl MPS: filters and ranks show/anime search results by season number,
 verifies episodes map correctly, and caches the resolved mappings.
 """
+import json
 import logging
+import os
 import re
 import requests
+from pathlib import Path
 from typing import Dict, Any, Optional, List
 
 logger = logging.getLogger(__name__)
@@ -15,9 +18,91 @@ SIMKL_API_BASE_URL = "https://api.simkl.com"
 # Key: (title.lower().strip(), season_number, media_type) -> resolved_dict
 _resolver_cache: Dict[tuple, Dict[str, Any]] = {}
 
+# Persistence: the resolved (title, season, type) -> Simkl-id mappings are also
+# written to disk so they survive application restarts (resolution is expensive:
+# multiple search queries plus episode-existence checks per miss).
+_CACHE_FILE_NAME = "season_resolver_cache.json"
+# Tests set this to a tmp dir to avoid touching the real app data directory.
+_CACHE_DIR_OVERRIDE: Optional[str] = None
+# Whether the on-disk cache has been loaded into memory this session.
+_disk_loaded = False
+
+
+def _cache_file_path() -> Optional[Path]:
+    """Resolve the on-disk cache path, or None if no app data dir is available."""
+    base = _CACHE_DIR_OVERRIDE
+    if base is None:
+        try:
+            from simkl_mps.config_manager import get_app_data_dir
+            base = get_app_data_dir()
+        except Exception as e:  # pragma: no cover - defensive; persistence is best-effort
+            logger.debug(f"SeasonResolver: app data dir unavailable, persistence disabled: {e}")
+            return None
+    return Path(base) / _CACHE_FILE_NAME
+
+
+def _load_cache_from_disk() -> None:
+    """Populate the in-memory cache from the JSON file, if present and valid."""
+    path = _cache_file_path()
+    if path is None or not path.exists():
+        return
+    try:
+        content = path.read_text(encoding="utf-8").strip()
+        if not content:
+            return
+        data = json.loads(content)
+        entries = data.get("entries", []) if isinstance(data, dict) else []
+        loaded = 0
+        for entry in entries:
+            key = entry.get("key")
+            value = entry.get("value")
+            if isinstance(key, list) and len(key) == 3 and isinstance(value, dict):
+                _resolver_cache[(key[0], key[1], key[2])] = value
+                loaded += 1
+        logger.info(f"SeasonResolver: Loaded {loaded} cached entries from {path}")
+    except (json.JSONDecodeError, OSError, ValueError) as e:
+        logger.warning(f"SeasonResolver: Failed to load persistent cache from {path}: {e}")
+
+
+def _save_cache_to_disk() -> None:
+    """Write the in-memory cache to the JSON file atomically (best-effort)."""
+    path = _cache_file_path()
+    if path is None:
+        return
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        entries = [{"key": list(k), "value": v} for k, v in _resolver_cache.items()]
+        tmp_path = path.with_name(path.name + ".tmp")
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            json.dump({"version": 1, "entries": entries}, f, indent=2)
+        os.replace(tmp_path, path)  # atomic on the same filesystem
+    except OSError as e:
+        logger.warning(f"SeasonResolver: Failed to persist cache to {path}: {e}")
+
+
+def _ensure_loaded() -> None:
+    """Load the on-disk cache into memory once per session."""
+    global _disk_loaded
+    if not _disk_loaded:
+        _disk_loaded = True  # set first so a load failure isn't retried every call
+        _load_cache_from_disk()
+
+
 def clear_resolver_cache():
-    """Clear the season resolver cache."""
+    """Clear the season resolver cache, in memory and on disk."""
+    global _disk_loaded
     _resolver_cache.clear()
+    path = _cache_file_path()
+    if path is not None:
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            pass
+        except OSError as e:
+            logger.warning(f"SeasonResolver: Failed to delete persistent cache {path}: {e}")
+    # Treat the (now absent) file as already loaded so the next resolve doesn't
+    # reload stale data; an empty file simply yields an empty cache anyway.
+    _disk_loaded = True
     logger.info("SeasonResolver: Cache cleared.")
 
 def title_matches_season(title: str, season: int) -> bool:
@@ -126,7 +211,8 @@ def resolve_season_entry(
     """
     if not title or season is None or episode is None:
         return None
-        
+
+    _ensure_loaded()
     title_clean = title.strip()
     cache_key = (title_clean.lower(), season, media_type)
     if cache_key in _resolver_cache:
@@ -223,6 +309,7 @@ def resolve_season_entry(
                 "raw_result": item
             }
             _resolver_cache[cache_key] = resolved_dict
+            _save_cache_to_disk()
             return resolved_dict
         else:
             logger.info(f"SeasonResolver: Episode {episode} verification failed for '{item_title}' (ID: {simkl_id}). Trying next candidate.")
@@ -240,6 +327,7 @@ def resolve_season_entry(
             "raw_result": best_item
         }
         _resolver_cache[cache_key] = resolved_dict
+        _save_cache_to_disk()
         return resolved_dict
         
     return None
