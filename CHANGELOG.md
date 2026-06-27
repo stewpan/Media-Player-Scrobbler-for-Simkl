@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.8.2] - 2026-06-27
+
+### Added
+- A confidence guard on title identification: if Simkl's best match for a movie or
+  live-action show is clearly unrelated to what was played (near-zero title overlap), it is
+  rejected instead of scrobbling a wrong guess, and a notification is shown. Anime are
+  exempt because they legitimately have very different alternate titles (e.g. "Attack on
+  Titan" vs "Shingeki no Kyojin"). (#21)
+
 ## [2.8.1] - 2026-06-27
 
 ### Fixed
@@ -151,7 +160,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - macOS VLC window detection, credential loading and Simkl `412` handling, and
   Simkl season-level tracking for multi-season shows/anime.
 
-[Unreleased]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.8.1...HEAD
+[Unreleased]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.8.2...HEAD
+[2.8.2]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.8.1...v2.8.2
 [2.8.1]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.8.0...v2.8.1
 [2.8.0]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.7.4...v2.8.0
 [2.7.4]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.7.3...v2.7.4

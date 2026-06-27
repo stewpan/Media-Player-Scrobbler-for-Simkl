@@ -235,3 +235,24 @@ def test_titles_roughly_match_unknown_does_not_reject():
 def test_title_from_filename(scrobbler):
     fn = "/tv/Avatar - The Last Airbender (2024) - S02E06 - The Parable [WEBDL-1080p]-FLUX.mkv"
     assert "Last Airbender" in scrobbler._title_from_filename(fn, None)
+
+
+# --- match-confidence guard ---------------------------------------------------
+
+def test_match_confidence_rejects_unrelated(scrobbler):
+    assert scrobbler._match_is_confident(
+        "Avatar The Last Airbender S02E05.mkv", "movie", "ZB1's ROCK Festival") is False
+
+
+@pytest.mark.parametrize("inp, mtype, result", [
+    ("Avatar The Last Airbender (2024).mkv", "movie", "Avatar: The Last Airbender"),
+    ("Breaking Bad S01E01.mkv", "show", "Breaking Bad"),
+])
+def test_match_confidence_accepts_related(scrobbler, inp, mtype, result):
+    assert scrobbler._match_is_confident(inp, mtype, result) is True
+
+
+def test_match_confidence_skips_anime_alt_titles(scrobbler):
+    # English filename, Japanese Simkl title -> anime is exempt, must not be rejected.
+    assert scrobbler._match_is_confident(
+        "Attack on Titan S01E01.mkv", "anime", "Shingeki no Kyojin") is True
