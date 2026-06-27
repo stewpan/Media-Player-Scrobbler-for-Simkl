@@ -10,6 +10,7 @@ from simkl_mps.window_detection import (
     is_video_player,
     format_file_size,
     parse_filename_from_path,
+    parse_media_title,
     _parse_macos_tab_window_output,
     _parse_macos_legacy_applescript_pairs,
     _merge_macos_window_lists,
@@ -112,3 +113,28 @@ def test_parse_filename_from_path_rejects_non_video():
 def test_parse_filename_from_path_empty():
     assert parse_filename_from_path("") is None
     assert parse_filename_from_path(None) is None
+
+
+# --- parse_media_title: multi-word titles with hyphen separators ---------------
+
+def test_hyphenated_title_is_not_truncated():
+    # Regression: "Avatar - The Last Airbender" must not be truncated to "Avatar"
+    # (which previously mis-identified to an unrelated show).
+    info = parse_media_title("Avatar - The Last Airbender (2024) - S02E05")
+    assert "Last Airbender" in info["title"]
+    assert info["title"] != "Avatar"
+    assert info["season"] == 2
+    assert info["episode"] == 5
+
+
+def test_hyphenated_word_preserved():
+    # A hyphen inside a word (no surrounding spaces) must stay intact.
+    info = parse_media_title("Spider-Man (2002)")
+    assert "Spider-Man" in info["title"]
+
+
+def test_simple_show_title_and_episode():
+    info = parse_media_title("Breaking Bad - S05E14")
+    assert info["title"] == "Breaking Bad"
+    assert info["season"] == 5
+    assert info["episode"] == 14

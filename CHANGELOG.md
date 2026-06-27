@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.7.1] - 2026-06-21
+
+### Fixed
+- Titles containing a hyphen separator (e.g. `Avatar - The Last Airbender (2024) - S02E05`)
+  were truncated to the first segment ("Avatar") before identification, because guessit
+  treats `" - "` as a title separator — leading to severe misidentification (matching an
+  unrelated show). The title is now normalized (hyphen separators → spaces) before parsing,
+  so the full title is preserved. Hyphenated words like "Spider-Man" are unaffected. (#15)
+
 ## [2.7.0] - 2026-06-21
 
 ### Added
@@ -87,7 +96,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - macOS VLC window detection, credential loading and Simkl `412` handling, and
   Simkl season-level tracking for multi-season shows/anime.
 
-[Unreleased]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.7.0...HEAD
+[Unreleased]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.7.1...HEAD
+[2.7.1]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.7.0...v2.7.1
 [2.7.0]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.6.0...v2.7.0
 [2.6.0]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.5.1...v2.6.0
 [2.5.1]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.5.0...v2.5.1
