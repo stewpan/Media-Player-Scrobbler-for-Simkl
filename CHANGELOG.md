@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.7.4] - 2026-06-27
+
+### Fixed
+- **Rewatch detection is now season-strict.** An episode number was matched across seasons,
+  so e.g. watching S02E06 was wrongly flagged as a rewatch (and skipped) just because
+  S01E06 had been seen. When the season is known, only an exact (season, episode) match
+  counts — both against the local Simkl copy and the local watch history. (#18)
+
+### Added
+- The app now logs its version, Python version and platform at startup
+  (`simkl-mps vX.Y.Z | Python ... | platform ...`), so a glance at the log shows what's
+  running. (#18)
+
 ## [2.7.3] - 2026-06-27
 
 ### Fixed
@@ -115,7 +128,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - macOS VLC window detection, credential loading and Simkl `412` handling, and
   Simkl season-level tracking for multi-season shows/anime.
 
-[Unreleased]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.7.3...HEAD
+[Unreleased]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.7.4...HEAD
+[2.7.4]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.7.3...v2.7.4
 [2.7.3]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.7.2...v2.7.3
 [2.7.2]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.7.1...v2.7.2
 [2.7.1]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.7.0...v2.7.1

@@ -133,9 +133,13 @@ class WatchedLibrary:
             return False
         if episode is None:
             return True
-        if season is not None and (season, episode) in eps:
-            return True
-        return any(ep == episode for (_s, ep) in eps)  # season-agnostic fallback
+        if season is not None:
+            # Season is known -> require an exact (season, episode) match. A bare
+            # episode-number match across seasons would wrongly flag e.g. S02E06 as
+            # watched just because S01E06 was seen.
+            return (season, episode) in eps
+        # Season unknown -> best-effort match on episode number across seasons.
+        return any(ep == episode for (_s, ep) in eps)
 
     def stats(self):
         with self._lock:
