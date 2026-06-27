@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.8.0] - 2026-06-27
+
+### Fixed
+- **Rewatch detection now works for anime and split-per-season titles.** Simkl splits many
+  anime franchises into one id per season/cour and exposes only a `watched_episodes_count`
+  (not a per-episode list), so the local copy previously had no episode data for ~99% of
+  anime and rewatches went undetected. The local copy now stores the watched-episode count
+  and uses it (episodes 1..count) when a per-episode list isn't available, and matches on
+  episode number alone for single-season ids (where the detected "franchise" season won't
+  line up with Simkl's internal numbering). Multi-season ids (e.g. Avatar 2024) stay
+  season-strict. The snapshot format is bumped to v2 (old snapshots load and are upgraded
+  on the next sync). (#19)
+
 ## [2.7.4] - 2026-06-27
 
 ### Fixed
@@ -128,7 +141,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - macOS VLC window detection, credential loading and Simkl `412` handling, and
   Simkl season-level tracking for multi-season shows/anime.
 
-[Unreleased]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.7.4...HEAD
+[Unreleased]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.8.0...HEAD
+[2.8.0]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.7.4...v2.8.0
 [2.7.4]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.7.3...v2.7.4
 [2.7.3]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.7.2...v2.7.3
 [2.7.2]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.7.1...v2.7.2

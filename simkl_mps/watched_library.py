@@ -1,9 +1,15 @@
 """A persistent local copy of the user's Simkl watched library.
 
-Mirrors the movies and show/anime episodes the user has marked watched on Simkl
-into a JSON snapshot in the app data dir, refreshed from /sync/all-items only when
-/sync/activities reports a change. The snapshot is used as the comparison material
-for rewatch detection and works even while offline.
+Mirrors the movies and show/anime episodes the user has watched on Simkl into a
+JSON snapshot in the app data dir, refreshed from /sync/all-items only when
+/sync/activities reports a change. The snapshot is used as the comparison
+material for rewatch detection and works even while offline.
+
+Per show/anime entry we keep, when available, the precise set of watched
+(season, episode) pairs (Simkl only exposes these for some titles), and always
+the ``watched_episodes_count`` Simkl reports. Anime — and many shows — are split
+into one Simkl id per season/cour and don't expose a per-episode list, so the
+count (episodes 1..count) is the fallback signal.
 """
 import json
 import logging
@@ -43,7 +49,8 @@ def _parse_movies(items):
 
 
 def _parse_shows(items):
-    shows = {}
+    """Return {simkl_id: {"eps": set[(season, episode)], "count": int|None}}."""
+    out = {}
     for it in items or []:
         if not isinstance(it, dict):
             continue
@@ -62,8 +69,13 @@ def _parse_shows(items):
                 enum = ep.get("number")
                 if enum is not None:
                     eps.add((snum, enum))
-        shows[sid] = eps
-    return shows
+        count = it.get("watched_episodes_count")
+        try:
+            count = int(count) if count is not None else None
+        except (TypeError, ValueError):
+            count = None
+        out[sid] = {"eps": eps, "count": count}
+    return out
 
 
 class WatchedLibrary:
@@ -73,14 +85,30 @@ class WatchedLibrary:
         self.path = Path(app_data_dir) / _FILE_NAME
         self._lock = threading.Lock()
         self._movies = set()   # set[int]
-        self._shows = {}       # {int: set[(season, episode)]}
-        self._anime = {}       # {int: set[(season, episode)]}
+        self._shows = {}       # {int: {"eps": set[(s,e)], "count": int|None}}
+        self._anime = {}       # {int: {"eps": set[(s,e)], "count": int|None}}
         self._activities = {}  # {simkl_type: activity timestamp}
         self._synced_at = None
         self._last_sync_attempt = 0.0
         self._load()
 
     # --- persistence ---
+    @staticmethod
+    def _decode_group(raw):
+        """Decode a persisted show/anime group, tolerating the old eps-only format."""
+        group = {}
+        for k, v in (raw or {}).items():
+            try:
+                sid = int(k)
+            except (TypeError, ValueError):
+                continue
+            if isinstance(v, dict):  # current format
+                eps = {tuple(p) for p in (v.get("eps") or [])}
+                group[sid] = {"eps": eps, "count": v.get("count")}
+            elif isinstance(v, list):  # legacy: bare list of [season, episode]
+                group[sid] = {"eps": {tuple(p) for p in v}, "count": None}
+        return group
+
     def _load(self):
         if not self.path.exists():
             return
@@ -91,23 +119,30 @@ class WatchedLibrary:
             return
         try:
             self._movies = {int(x) for x in data.get("movies", [])}
-            self._shows = {int(k): {tuple(p) for p in v} for k, v in (data.get("shows") or {}).items()}
-            self._anime = {int(k): {tuple(p) for p in v} for k, v in (data.get("anime") or {}).items()}
+            self._shows = self._decode_group(data.get("shows"))
+            self._anime = self._decode_group(data.get("anime"))
             self._activities = data.get("activities") or {}
             self._synced_at = data.get("synced_at")
         except (TypeError, ValueError) as e:
             logger.warning(f"WatchedLibrary: malformed snapshot, ignoring: {e}")
 
+    @staticmethod
+    def _encode_group(group):
+        return {
+            str(sid): {"eps": [list(p) for p in d.get("eps", ())], "count": d.get("count")}
+            for sid, d in group.items()
+        }
+
     def _save(self):
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             payload = {
-                "version": 1,
+                "version": 2,
                 "synced_at": self._synced_at,
                 "activities": self._activities,
                 "movies": sorted(self._movies),
-                "shows": {str(k): [list(p) for p in v] for k, v in self._shows.items()},
-                "anime": {str(k): [list(p) for p in v] for k, v in self._anime.items()},
+                "shows": self._encode_group(self._shows),
+                "anime": self._encode_group(self._anime),
             }
             tmp = self.path.with_name(self.path.name + ".tmp")
             with open(tmp, "w", encoding="utf-8") as f:
@@ -128,18 +163,30 @@ class WatchedLibrary:
         with self._lock:
             if simkl_type == "movies":
                 return simkl_id in self._movies
-            eps = (self._shows if simkl_type == "shows" else self._anime).get(simkl_id)
-        if eps is None:
+            data = (self._shows if simkl_type == "shows" else self._anime).get(simkl_id)
+        if data is None:
             return False
+
+        eps = data.get("eps") or set()
+        count = data.get("count")
         if episode is None:
-            return True
-        if season is not None:
-            # Season is known -> require an exact (season, episode) match. A bare
-            # episode-number match across seasons would wrongly flag e.g. S02E06 as
-            # watched just because S01E06 was seen.
-            return (season, episode) in eps
-        # Season unknown -> best-effort match on episode number across seasons.
-        return any(ep == episode for (_s, ep) in eps)
+            return bool(eps) or bool(count)
+
+        if eps:
+            seasons = {s for (s, _e) in eps}
+            # Only enforce the season when this Simkl id genuinely spans multiple
+            # seasons (e.g. Avatar 2024 has S1 + S2 under one id). Anime/shows split
+            # one id per season/cour collapse to a single season, where the detected
+            # "franchise" season (S2/S3/...) won't match Simkl's internal numbering —
+            # there we match on episode number alone.
+            if season is not None and len(seasons) > 1:
+                return (season, episode) in eps
+            return any(ep == episode for (_s, ep) in eps)
+
+        # No per-episode list -> Simkl only gives a watched count (contiguous progress).
+        if count:
+            return episode <= count
+        return False
 
     def stats(self):
         with self._lock:
@@ -171,7 +218,7 @@ class WatchedLibrary:
                     new_activity = cat.get("all")
 
             with self._lock:
-                synced_before = simkl_type in self._activities  # synced at least once (even if empty)
+                synced_before = simkl_type in self._activities
                 have_data = self._has_type(simkl_type)
                 unchanged = (new_activity is not None
                              and new_activity == self._activities.get(simkl_type))
@@ -185,7 +232,6 @@ class WatchedLibrary:
             parsed = _parse_movies(items) if simkl_type == "movies" else _parse_shows(items)
             with self._lock:
                 self._set_type(simkl_type, parsed)
-                # Record the activity (or a marker) so the type counts as synced next time.
                 self._activities[simkl_type] = new_activity if new_activity is not None else ""
             changed = True
 
