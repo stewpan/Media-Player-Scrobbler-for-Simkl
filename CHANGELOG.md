@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.8.3] - 2026-06-27
+
+### Added
+- The History page now has a **"Last rewatched"** column showing when you last re-watched
+  each title (empty if never). The timestamp is recorded whenever a rewatch is detected. (#22)
+
 ## [2.8.2] - 2026-06-27
 
 ### Added
@@ -160,7 +166,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - macOS VLC window detection, credential loading and Simkl `412` handling, and
   Simkl season-level tracking for multi-season shows/anime.
 
-[Unreleased]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.8.2...HEAD
+[Unreleased]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.8.3...HEAD
+[2.8.3]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.8.2...v2.8.3
 [2.8.2]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.8.1...v2.8.2
 [2.8.1]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.8.0...v2.8.1
 [2.8.0]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.7.4...v2.8.0

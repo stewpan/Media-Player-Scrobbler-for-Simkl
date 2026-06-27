@@ -156,6 +156,31 @@ class WatchHistoryManager:
                 return item
         return None
 
+    def record_rewatch(self, simkl_id, media_type="show", title=None, when=None):
+        """Mark that this item was just re-watched (sets last_rewatched_at).
+
+        Updates the existing history entry, or creates a minimal stub if the item was only
+        ever watched on another device. Returns the entry.
+        """
+        from datetime import datetime, timezone
+        when = when or datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
+        entry = None
+        for mt in (media_type, 'tv', 'show', 'movie'):
+            entry = self.get_entry(simkl_id, mt)
+            if entry:
+                break
+        if entry is None:
+            entry = {
+                'simkl_id': simkl_id,
+                'type': media_type or 'show',
+                'title': title or str(simkl_id),
+                'watched_at': when,
+            }
+            self.history.append(entry)
+        entry['last_rewatched_at'] = when
+        self._save_history()
+        return entry
+
     def remove(self, simkl_id, media_type="movie"):
         """Remove a specific entry from history"""
         initial_length = len(self.history)
