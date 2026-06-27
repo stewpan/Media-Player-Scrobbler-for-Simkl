@@ -96,6 +96,23 @@ def create_api_blueprint(context):
             return jsonify({"movies": 0, "shows": 0, "anime": 0, "total": 0, "synced_at": None})
         return jsonify(lib.stats())
 
+    @api.post("/library/sync")
+    def library_sync():
+        lib = context.get_watched_library() if hasattr(context, "get_watched_library") else None
+        if lib is None:
+            return jsonify({"synced": False, "reason": "unavailable"}), 503
+        from simkl_mps.credentials import get_credentials
+        creds = get_credentials() or {}
+        cid, tok = creds.get("client_id"), creds.get("access_token")
+        if not cid or not tok:
+            return jsonify({"synced": False, "reason": "not_authenticated"}), 400
+        try:
+            lib.ensure_synced(cid, tok, force=True)
+        except Exception as e:  # pragma: no cover - defensive
+            logger.warning(f"Manual library sync failed: {e}")
+            return jsonify({"synced": False, "reason": "error"}), 500
+        return jsonify({"synced": True, **lib.stats()})
+
     @api.get("/settings")
     def get_settings():
         return jsonify({key: get_setting(key) for key in _SETTINGS_KEYS})

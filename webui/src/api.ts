@@ -86,6 +86,7 @@ export const api = {
     getJSON<{ entries: HistoryEntry[]; total: number }>(`/api/history?limit=${limit}`),
   stats: () => getJSON<Stats>("/api/stats"),
   library: () => getJSON<Library>("/api/library"),
+  syncLibrary: () => postJSON<Library & { synced: boolean }>("/api/library/sync", {}),
   getSettings: () => getJSON<Settings>("/api/settings"),
   updateSettings: (patch: Partial<Settings>) => postJSON<{ updated: Partial<Settings> }>("/api/settings", patch),
   authStatus: () => getJSON<AuthStatus>("/api/auth/status"),

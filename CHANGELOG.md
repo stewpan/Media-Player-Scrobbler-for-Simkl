@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.8.4] - 2026-06-27
+
+### Added
+- A **"Sync now"** button on the dashboard to force an immediate refresh of the local Simkl
+  watched-library copy (new `POST /api/library/sync` endpoint), instead of waiting for the
+  background sync. (#23)
+
 ## [2.8.3] - 2026-06-27
 
 ### Added
@@ -166,7 +173,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - macOS VLC window detection, credential loading and Simkl `412` handling, and
   Simkl season-level tracking for multi-season shows/anime.
 
-[Unreleased]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.8.3...HEAD
+[Unreleased]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.8.4...HEAD
+[2.8.4]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.8.3...v2.8.4
 [2.8.3]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.8.2...v2.8.3
 [2.8.2]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.8.1...v2.8.2
 [2.8.1]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.8.0...v2.8.1

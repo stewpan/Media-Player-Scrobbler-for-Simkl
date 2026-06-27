@@ -3,6 +3,7 @@ MediaScrobbler.get_status() snapshot it relies on.
 """
 import socket
 import types
+from unittest.mock import patch
 
 import pytest
 
@@ -56,12 +57,28 @@ class FakeAuthManager:
         return self._start_result
 
 
+class FakeLibrary:
+    def __init__(self):
+        self.synced = 0
+
+    def ensure_synced(self, cid, tok, force=False):
+        self.synced += 1
+        return True
+
+    def stats(self):
+        return {"movies": 1, "shows": 2, "anime": 3, "total": 6, "synced_at": "2026-06-27Z"}
+
+
 class FakeContext:
-    def __init__(self, scrobbler=None, history=None, running=False, auth=None):
+    def __init__(self, scrobbler=None, history=None, running=False, auth=None, library=None):
         self._scrobbler = scrobbler
         self._history = history
         self._running = running
         self._auth = auth or FakeAuthManager()
+        self._library = library
+
+    def get_watched_library(self):
+        return self._library
 
     def get_scrobbler(self):
         return self._scrobbler
@@ -207,6 +224,25 @@ def test_settings_dir_change_signals_scrobbler(isolated_settings):
 
 
 # --- /api/auth ----------------------------------------------------------------
+
+def test_library_sync_forces_resync():
+    lib = FakeLibrary()
+    client = _client(FakeContext(library=lib))
+    with patch("simkl_mps.credentials.get_credentials",
+               return_value={"client_id": "c", "access_token": "t"}):
+        resp = client.post("/api/library/sync")
+    assert resp.status_code == 200
+    assert resp.get_json()["synced"] is True
+    assert resp.get_json()["total"] == 6
+    assert lib.synced == 1
+
+
+def test_library_sync_requires_auth():
+    client = _client(FakeContext(library=FakeLibrary()))
+    with patch("simkl_mps.credentials.get_credentials", return_value={"client_id": None}):
+        resp = client.post("/api/library/sync")
+    assert resp.status_code == 400
+
 
 def test_auth_status_endpoint():
     auth = FakeAuthManager(status={"authenticated": True, "user_id": 42, "in_progress": False})
