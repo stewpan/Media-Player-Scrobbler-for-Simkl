@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.7.2] - 2026-06-27
+
+### Fixed
+- Simkl's file search (`/search/file`) sometimes maps a file to a completely unrelated
+  title (e.g. an Avatar episode identified as "ZB1's ROCK Festival"), which was accepted
+  blindly and scrobbled the wrong show. File-search results are now validated against the
+  title parsed from the filename and rejected (falling back to title search) when they
+  don't match. This is the real cause of the misidentification 2.7.1 partially addressed. (#16)
+
 ## [2.7.1] - 2026-06-21
 
 ### Fixed
@@ -96,7 +105,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - macOS VLC window detection, credential loading and Simkl `412` handling, and
   Simkl season-level tracking for multi-season shows/anime.
 
-[Unreleased]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.7.1...HEAD
+[Unreleased]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.7.2...HEAD
+[2.7.2]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.7.1...v2.7.2
 [2.7.1]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.7.0...v2.7.1
 [2.7.0]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.6.0...v2.7.0
 [2.6.0]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.5.1...v2.6.0
