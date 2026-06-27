@@ -72,21 +72,50 @@ def test_no_credentials_is_noop(tmp_path):
     assert WatchedLibrary(tmp_path).ensure_synced(None, None) is False
 
 
-def test_is_watched_is_season_strict(tmp_path):
-    # Regression: only Season 1 (ep 1-8) watched; S02E06 must NOT count as watched
-    # just because S01E06 was seen.
+def _sync(lib, *, movies=None, shows=None, anime=None):
+    with patch("simkl_mps.watched_library.simkl_api.get_sync_activities",
+               return_value={"movies": {"all": "t1"}, "tv_shows": {"all": "t1"}, "anime": {"all": "t1"}}), \
+         patch("simkl_mps.watched_library.simkl_api.get_watched_items",
+               side_effect=lambda c, t, st: {"movies": movies or [], "shows": shows or [], "anime": anime or []}[st]):
+        lib.ensure_synced("c", "t", force=True)
+
+
+def test_season_strict_only_for_multiseason_id(tmp_path):
+    # One Simkl id spanning seasons 1 and 2 (e.g. Avatar 2024) -> season-strict:
+    # S02E06 watched, but S03E06 (unwatched season) must be False.
     lib = WatchedLibrary(tmp_path)
     shows = [{
         "show": {"ids": {"simkl": 1398568}},
-        "seasons": [{"number": 1, "episodes": [{"number": n} for n in range(1, 9)]}],
+        "seasons": [
+            {"number": 1, "episodes": [{"number": n} for n in range(1, 9)]},
+            {"number": 2, "episodes": [{"number": n} for n in range(1, 7)]},
+        ],
     }]
-    with patch("simkl_mps.watched_library.simkl_api.get_sync_activities", return_value={"tv_shows": {"all": "t1"}}), \
-         patch("simkl_mps.watched_library.simkl_api.get_watched_items",
-               side_effect=lambda c, t, st: {"movies": [], "shows": shows, "anime": []}[st]):
-        lib.ensure_synced("c", "t", force=True)
-    assert lib.is_watched(1398568, "show", 1, 6) is True    # S01E06 watched
-    assert lib.is_watched(1398568, "show", 2, 6) is False   # S02E06 NOT watched (strict)
-    assert lib.is_watched(1398568, "show", None, 6) is True  # season unknown -> episode match
+    _sync(lib, shows=shows)
+    assert lib.is_watched(1398568, "show", 2, 6) is True
+    assert lib.is_watched(1398568, "show", 1, 6) is True
+    assert lib.is_watched(1398568, "show", 3, 6) is False  # season 3 not watched (strict)
+
+
+def test_single_season_id_matches_episode_regardless_of_detected_season(tmp_path):
+    # Anime/shows split one id per season catalog episodes under season 1; the app
+    # detects the "franchise" season -> match on episode number alone.
+    lib = WatchedLibrary(tmp_path)
+    shows = [{"show": {"ids": {"simkl": 999}},
+              "seasons": [{"number": 1, "episodes": [{"number": 5}]}]}]
+    _sync(lib, shows=shows)
+    assert lib.is_watched(999, "show", 4, 5) is True   # detected S4, stored S1 -> episode match
+    assert lib.is_watched(999, "show", 4, 6) is False
+
+
+def test_watched_count_fallback_for_split_anime(tmp_path):
+    # No per-episode list, only watched_episodes_count -> episodes 1..count are watched.
+    lib = WatchedLibrary(tmp_path)
+    anime = [{"show": {"ids": {"simkl": 12345}}, "watched_episodes_count": 12}]
+    _sync(lib, anime=anime)
+    assert lib.is_watched(12345, "anime", 2, 5) is True    # ep 5 <= 12 (season ignored)
+    assert lib.is_watched(12345, "anime", 4, 12) is True   # ep 12 <= 12
+    assert lib.is_watched(12345, "anime", 4, 13) is False  # ep 13 > 12
 
 
 # --- simkl_api sync helpers ---------------------------------------------------
