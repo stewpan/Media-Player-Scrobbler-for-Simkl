@@ -123,6 +123,33 @@ def test_verify_episode_exists_success(mock_get_episodes):
 
 
 @patch("simkl_mps.season_resolver.get_episodes")
+def test_verify_episode_handles_non_list_response(mock_get_episodes):
+    # Regression: /tv/{id}/episodes can return a dict (show object) instead of a
+    # list, which used to crash with "'str' object has no attribute 'get'".
+    mock_get_episodes.return_value = {"title": "Avatar: The Last Airbender", "year": 2005}
+    assert verify_episode_exists(4390, 5, "cid", "token", "show") is False
+    mock_get_episodes.return_value = ["not", "a", "dict"]
+    assert verify_episode_exists(4390, 5, "cid", "token", "show") is False
+
+
+@patch("simkl_mps.season_resolver.query_simkl_search")
+@patch("simkl_mps.season_resolver.verify_episode_exists", return_value=False)
+def test_resolve_prefers_matching_year(mock_verify, mock_search):
+    # "Avatar: The Last Airbender" exists as 2005 and 2024; the year must pick 2024.
+    mock_search.side_effect = [
+        [
+            {"title": "Avatar: The Last Airbender", "year": 2005, "ids": {"simkl": 4390}},
+            {"title": "Avatar: The Last Airbender", "year": 2024, "ids": {"simkl": 1398568}},
+        ],
+        [],
+        [],
+    ]
+    result = resolve_season_entry("Avatar The Last Airbender (2024)", 2, 5, "cid", "token", media_type="show")
+    assert result is not None
+    assert result["simkl_id"] == 1398568  # the 2024 version, not 4390 (2005)
+
+
+@patch("simkl_mps.season_resolver.get_episodes")
 def test_verify_episode_exists_empty(mock_get_episodes):
     mock_get_episodes.return_value = []
     assert verify_episode_exists(123, 4, "cid", "token", "anime") is False

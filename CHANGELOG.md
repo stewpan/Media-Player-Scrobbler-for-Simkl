@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.7.3] - 2026-06-27
+
+### Fixed
+- The season resolver crashed (`'str' object has no attribute 'get'`) when Simkl's
+  episodes endpoint returned a non-list payload, aborting identification. It now guards
+  against that shape and falls back to title/year ranking.
+- **Release year is now used to pick the right title** when several versions share a name
+  (e.g. *Avatar: The Last Airbender* 2005 vs the 2024 Netflix series). The year is parsed
+  from the title (or passed in) and strongly weighted in candidate ranking. (#17)
+
 ## [2.7.2] - 2026-06-27
 
 ### Fixed
@@ -105,7 +115,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - macOS VLC window detection, credential loading and Simkl `412` handling, and
   Simkl season-level tracking for multi-season shows/anime.
 
-[Unreleased]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.7.2...HEAD
+[Unreleased]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.7.3...HEAD
+[2.7.3]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.7.2...v2.7.3
 [2.7.2]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.7.1...v2.7.2
 [2.7.1]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.7.0...v2.7.1
 [2.7.0]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.6.0...v2.7.0

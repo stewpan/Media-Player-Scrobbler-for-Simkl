@@ -105,6 +105,10 @@ def clear_resolver_cache():
     _disk_loaded = True
     logger.info("SeasonResolver: Cache cleared.")
 
+def _normalize_title(title: str) -> str:
+    """Lowercase and strip punctuation/extra spaces for title comparisons."""
+    return re.sub(r'[^a-z0-9]+', ' ', (title or '').lower()).strip()
+
 def title_matches_season(title: str, season: int) -> bool:
     """Helper to check if a Simkl show title contains explicit indicators of the target season."""
     if not title or not season:
@@ -184,53 +188,78 @@ def get_episodes(simkl_id: int, client_id: str, access_token: str, media_type: s
     return []
 
 def verify_episode_exists(simkl_id: int, episode: int, client_id: str, access_token: str, media_type: str = "anime") -> bool:
-    """Calls /anime/{id}/episodes or /tv/{id}/episodes and verifies that the episode number exists."""
+    """Calls /anime/{id}/episodes or /tv/{id}/episodes and verifies that the episode number exists.
+
+    The episodes endpoint may return a list of episode dicts, or (for some titles) a
+    non-list payload. Guard against both shapes so verification can never crash; when the
+    response can't be interpreted as an episode list, return False so the caller falls back
+    to its title/year ranking instead.
+    """
     episodes = get_episodes(simkl_id, client_id, access_token, media_type)
-    if not episodes:
+    if isinstance(episodes, dict):
+        nested = episodes.get('episodes')
+        episodes = nested if isinstance(nested, list) else []
+    if not isinstance(episodes, list):
         return False
-    
-    # Check if there's any episode matching the target episode number
+
     for ep in episodes:
-        if ep.get('episode') == episode:
+        if isinstance(ep, dict) and ep.get('episode') == episode:
             return True
     return False
 
 def resolve_season_entry(
-    title: str, 
-    season: int, 
+    title: str,
+    season: int,
     episode: int,
-    client_id: str, 
-    access_token: str, 
-    media_type: str = "anime"
+    client_id: str,
+    access_token: str,
+    media_type: str = "anime",
+    year: Optional[int] = None,
 ) -> Optional[Dict[str, Any]]:
     """
     Resolves the correct Simkl ID and details for a given show/anime title and season.
-    Filters and ranks results to find the correct entry.
-    Calls verification on the episode mapping before returning.
-    Caches resolved values.
+    Filters and ranks results to find the correct entry. When the title exists in
+    multiple versions (e.g. Avatar: The Last Airbender 2005 vs 2024), the release year
+    is used to pick the right one. Calls verification on the episode mapping before
+    returning. Caches resolved values.
     """
     if not title or season is None or episode is None:
         return None
 
     _ensure_loaded()
     title_clean = title.strip()
+    # The cache key keeps the original title (which usually embeds the year), so different
+    # year versions of the same title resolve to different cache entries.
     cache_key = (title_clean.lower(), season, media_type)
     if cache_key in _resolver_cache:
         cached_result = _resolver_cache[cache_key]
         logger.info(f"SeasonResolver: Cache hit for '{title_clean}' Season {season} ({media_type}) -> ID {cached_result['simkl_id']}")
         return cached_result
-        
-    logger.info(f"SeasonResolver: Resolving Season {season} for '{title_clean}' ({media_type})")
-    
+
+    # Determine the target year (passed in, or parsed from a "(YYYY)" in the title) and
+    # build a clean search title without the year so Simkl's fuzzy search isn't hurt by it.
+    target_year = year
+    year_match = re.search(r'\((\d{4})\)', title_clean)
+    if year_match:
+        if target_year is None:
+            try:
+                target_year = int(year_match.group(1))
+            except ValueError:
+                pass
+    search_title = re.sub(r'\s*\(\d{4}\)\s*', ' ', title_clean).strip()
+
+    logger.info(f"SeasonResolver: Resolving Season {season} for '{search_title}' "
+                f"(year={target_year}, {media_type})")
+
     # Build search queries
     queries = []
     if season > 1:
         # Standard english representation
-        queries.append(f"{title_clean} Season {season}")
+        queries.append(f"{search_title} Season {season}")
         # Standard ordinal representation
         ordinal = f"{season}nd" if season == 2 else f"{season}rd" if season == 3 else f"{season}th"
-        queries.append(f"{title_clean} {ordinal} Season")
-    queries.append(title_clean)
+        queries.append(f"{search_title} {ordinal} Season")
+    queries.append(search_title)
     
     search_results = []
     for q in queries:
@@ -285,11 +314,20 @@ def resolve_season_entry(
                 if has_other_season:
                     score -= 80
                     
-        # Match base title similarity (strip trailing season suffixes)
+        # Match base title similarity (strip trailing season suffixes), punctuation-insensitive
         clean_item_title = re.sub(r'\b(season|part|cour|nd|rd|th|\d+)\b.*', '', item_title, flags=re.IGNORECASE).strip()
-        if clean_item_title.lower() == title_clean.lower():
+        if _normalize_title(clean_item_title) == _normalize_title(search_title):
             score += 10
-            
+
+        # Year disambiguation: strongly prefer the candidate whose year matches the target
+        # (e.g. Avatar: The Last Airbender 2024 over the 2005 version).
+        item_year = item.get('year')
+        if target_year and item_year:
+            try:
+                score += 60 if int(item_year) == int(target_year) else -60
+            except (TypeError, ValueError):
+                pass
+
         ranked_results.append((score, item))
         
     # Sort by score descending
