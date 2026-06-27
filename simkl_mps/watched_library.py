@@ -14,6 +14,7 @@ count (episodes 1..count) is the fallback signal.
 import json
 import logging
 import os
+import re
 import threading
 import time
 from datetime import datetime, timezone
@@ -22,6 +23,18 @@ from pathlib import Path
 from simkl_mps import simkl_api
 
 logger = logging.getLogger(__name__)
+
+_SE_RE = re.compile(r"[Ss](\d+)[Ee](\d+)")
+
+
+def _parse_se(value):
+    """Parse a Simkl 'S02E19' progress string into (season, episode), or None."""
+    if not isinstance(value, str):
+        return None
+    m = _SE_RE.search(value)
+    if not m:
+        return None
+    return (int(m.group(1)), int(m.group(2)))
 
 # our media_type -> Simkl all-items type
 _TYPE_MAP = {"movie": "movies", "show": "shows", "anime": "anime"}
@@ -49,7 +62,12 @@ def _parse_movies(items):
 
 
 def _parse_shows(items):
-    """Return {simkl_id: {"eps": set[(season, episode)], "count": int|None}}."""
+    """Return {simkl_id: {"eps", "count", "next", "last"}} for shows/anime.
+
+    ``eps`` is the precise set of watched (season, episode) pairs when Simkl
+    provides one; ``next``/``last`` are Simkl's progress pointers (the first
+    unwatched and last watched episode), and ``count`` the watched-episode count.
+    """
     out = {}
     for it in items or []:
         if not isinstance(it, dict):
@@ -74,7 +92,12 @@ def _parse_shows(items):
             count = int(count) if count is not None else None
         except (TypeError, ValueError):
             count = None
-        out[sid] = {"eps": eps, "count": count}
+        out[sid] = {
+            "eps": eps,
+            "count": count,
+            "next": _parse_se(it.get("next_to_watch")),
+            "last": _parse_se(it.get("last_watched")),
+        }
     return out
 
 
@@ -95,7 +118,7 @@ class WatchedLibrary:
     # --- persistence ---
     @staticmethod
     def _decode_group(raw):
-        """Decode a persisted show/anime group, tolerating the old eps-only format."""
+        """Decode a persisted show/anime group, tolerating older formats."""
         group = {}
         for k, v in (raw or {}).items():
             try:
@@ -104,9 +127,14 @@ class WatchedLibrary:
                 continue
             if isinstance(v, dict):  # current format
                 eps = {tuple(p) for p in (v.get("eps") or [])}
-                group[sid] = {"eps": eps, "count": v.get("count")}
+                group[sid] = {
+                    "eps": eps,
+                    "count": v.get("count"),
+                    "next": tuple(v["next"]) if v.get("next") else None,
+                    "last": tuple(v["last"]) if v.get("last") else None,
+                }
             elif isinstance(v, list):  # legacy: bare list of [season, episode]
-                group[sid] = {"eps": {tuple(p) for p in v}, "count": None}
+                group[sid] = {"eps": {tuple(p) for p in v}, "count": None, "next": None, "last": None}
         return group
 
     def _load(self):
@@ -129,7 +157,12 @@ class WatchedLibrary:
     @staticmethod
     def _encode_group(group):
         return {
-            str(sid): {"eps": [list(p) for p in d.get("eps", ())], "count": d.get("count")}
+            str(sid): {
+                "eps": [list(p) for p in d.get("eps", ())],
+                "count": d.get("count"),
+                "next": list(d["next"]) if d.get("next") else None,
+                "last": list(d["last"]) if d.get("last") else None,
+            }
             for sid, d in group.items()
         }
 
@@ -137,7 +170,7 @@ class WatchedLibrary:
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             payload = {
-                "version": 2,
+                "version": 3,
                 "synced_at": self._synced_at,
                 "activities": self._activities,
                 "movies": sorted(self._movies),
@@ -169,22 +202,36 @@ class WatchedLibrary:
 
         eps = data.get("eps") or set()
         count = data.get("count")
+        nxt = data.get("next")
+        lst = data.get("last")
         if episode is None:
-            return bool(eps) or bool(count)
+            return bool(eps) or bool(count) or nxt is not None or lst is not None
 
+        # 1. Precise per-episode list (best). Season-strict only for multi-season ids.
         if eps:
             seasons = {s for (s, _e) in eps}
-            # Only enforce the season when this Simkl id genuinely spans multiple
-            # seasons (e.g. Avatar 2024 has S1 + S2 under one id). Anime/shows split
-            # one id per season/cour collapse to a single season, where the detected
-            # "franchise" season (S2/S3/...) won't match Simkl's internal numbering —
-            # there we match on episode number alone.
             if season is not None and len(seasons) > 1:
                 return (season, episode) in eps
             return any(ep == episode for (_s, ep) in eps)
 
-        # No per-episode list -> Simkl only gives a watched count (contiguous progress).
-        if count:
+        # 2/3. Progress pointers. Everything strictly before "next_to_watch" is watched
+        # (the contiguous frontier), so a genuine first watch — which is at or beyond the
+        # frontier — is never wrongly treated as a rewatch. Shows are compared
+        # season-aware; anime franchises are split into one id per cour (the detected
+        # season won't match Simkl's internal numbering) so they're compared by episode.
+        season_aware = (media_type != "anime")
+
+        def before(boundary, inclusive):
+            bs, be = boundary
+            if season_aware and season is not None:
+                return (season, episode) <= (bs, be) if inclusive else (season, episode) < (bs, be)
+            return episode <= be if inclusive else episode < be
+
+        if nxt is not None:
+            return before(nxt, inclusive=False)
+        if lst is not None:
+            return before(lst, inclusive=True)
+        if count:  # last-resort: assume contiguous 1..count
             return episode <= count
         return False
 

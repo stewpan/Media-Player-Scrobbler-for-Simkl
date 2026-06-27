@@ -109,13 +109,35 @@ def test_single_season_id_matches_episode_regardless_of_detected_season(tmp_path
 
 
 def test_watched_count_fallback_for_split_anime(tmp_path):
-    # No per-episode list, only watched_episodes_count -> episodes 1..count are watched.
+    # No per-episode list and no progress pointers -> assume contiguous 1..count.
     lib = WatchedLibrary(tmp_path)
     anime = [{"show": {"ids": {"simkl": 12345}}, "watched_episodes_count": 12}]
     _sync(lib, anime=anime)
     assert lib.is_watched(12345, "anime", 2, 5) is True    # ep 5 <= 12 (season ignored)
     assert lib.is_watched(12345, "anime", 4, 12) is True   # ep 12 <= 12
     assert lib.is_watched(12345, "anime", 4, 13) is False  # ep 13 > 12
+
+
+def test_progress_frontier_show_is_season_aware(tmp_path):
+    # Partially-watched multi-season show: everything before next_to_watch is watched.
+    lib = WatchedLibrary(tmp_path)
+    shows = [{"show": {"ids": {"simkl": 417}}, "watched_episodes_count": 40,
+              "last_watched": "S02E18", "next_to_watch": "S02E19"}]
+    _sync(lib, shows=shows)
+    assert lib.is_watched(417, "show", 2, 18) is True   # at the frontier-1 -> watched
+    assert lib.is_watched(417, "show", 2, 19) is False  # next_to_watch -> first watch scrobbles
+    assert lib.is_watched(417, "show", 3, 1) is False   # future season
+    assert lib.is_watched(417, "show", 1, 25) is True   # earlier season fully watched
+
+
+def test_progress_frontier_anime_is_episode_based(tmp_path):
+    # Split-per-cour anime: detected franchise season won't match Simkl's S01 numbering.
+    lib = WatchedLibrary(tmp_path)
+    anime = [{"show": {"ids": {"simkl": 999}}, "watched_episodes_count": 12,
+              "last_watched": "S01E12", "next_to_watch": "S01E13"}]
+    _sync(lib, anime=anime)
+    assert lib.is_watched(999, "anime", 4, 5) is True    # detected S4, episode 5 < 13
+    assert lib.is_watched(999, "anime", 4, 13) is False  # the next episode -> first watch scrobbles
 
 
 # --- simkl_api sync helpers ---------------------------------------------------
