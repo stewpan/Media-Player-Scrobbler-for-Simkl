@@ -71,6 +71,15 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 logger.info("="*20 + " Application Start " + "="*20)
+try:
+    from importlib.metadata import version as _pkg_version
+    _APP_VERSION = _pkg_version("simkl-mps")
+except Exception:
+    try:
+        from simkl_mps import __version__ as _APP_VERSION
+    except Exception:
+        _APP_VERSION = "unknown"
+logger.info(f"simkl-mps v{_APP_VERSION} | Python {sys.version.split()[0]} | platform {sys.platform}")
 logger.info(f"Using Application Data Directory: {APP_DATA_DIR}")
 if file_handler:
     logger.info(f"Logging to file: {log_file_path}")

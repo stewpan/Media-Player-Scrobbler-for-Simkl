@@ -24,6 +24,8 @@ class FakeLibrary:
             return False
         if episode is None:
             return True
+        if season is not None:
+            return (season, episode) in eps  # season-strict
         return any(e == episode for (_s, e) in eps)
 
 
@@ -33,8 +35,15 @@ def test_local_movie_is_rewatch():
 
 
 def test_local_episode_watched():
-    wh = FakeWatchHistory({(55, "show"): {"episodes": [{"number": 4}]}})
+    wh = FakeWatchHistory({(55, "show"): {"season": 1, "episodes": [{"number": 4}]}})
     assert is_rewatch(55, "show", 1, 4, watch_history=wh) is True
+
+
+def test_local_episode_wrong_season_not_rewatch():
+    # S01E06 in history must not flag S02E06 as a rewatch.
+    wh = FakeWatchHistory({(55, "show"): {"season": 1, "episodes": [{"number": 6}]}})
+    assert is_rewatch(55, "show", 2, 6, watch_history=wh) is False
+    assert is_rewatch(55, "show", 1, 6, watch_history=wh) is True
 
 
 def test_library_movie_when_not_local():

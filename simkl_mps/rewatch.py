@@ -21,7 +21,7 @@ def is_rewatch(simkl_id, media_type, season, episode, watch_history=None, librar
     except (TypeError, ValueError):
         return False
 
-    if _local_says_watched(watch_history, simkl_id, media_type, episode):
+    if _local_says_watched(watch_history, simkl_id, media_type, season, episode):
         return True
 
     if library is not None:
@@ -33,7 +33,7 @@ def is_rewatch(simkl_id, media_type, season, episode, watch_history=None, librar
     return False
 
 
-def _local_says_watched(watch_history, simkl_id, media_type, episode):
+def _local_says_watched(watch_history, simkl_id, media_type, season, episode):
     if watch_history is None:
         return False
     entry = None
@@ -50,5 +50,15 @@ def _local_says_watched(watch_history, simkl_id, media_type, episode):
         return True
     if episode is None:
         return True  # show already in history; no episode to disambiguate
+    # Season-strict: local episode entries don't carry a per-episode season, so if the
+    # entry's season is known and differs from the one being checked, don't treat an
+    # episode-number match as a rewatch (avoids flagging S02E06 because S01E06 was seen).
+    entry_season = entry.get("season")
+    if season is not None and entry_season is not None:
+        try:
+            if int(entry_season) != int(season):
+                return False
+        except (TypeError, ValueError):
+            pass
     watched_eps = {e.get("number") for e in entry.get("episodes", []) if isinstance(e, dict)}
     return episode in watched_eps
