@@ -827,6 +827,12 @@ def parse_media_title(window_title_or_info):
         logger.debug(f"Title too short after cleanup: '{title_to_guess}' from '{window_title}'")
         return None
 
+    # Guessit treats ' - ' as a title separator, which truncates multi-word titles
+    # like "Avatar - The Last Airbender (2024) - S02E05" to just "Avatar" and then
+    # misidentifies them. Normalize hyphen separators (with surrounding spaces) to a
+    # space so the full title survives; hyphenated words like "Spider-Man" are untouched.
+    title_to_guess = re.sub(r'\s+-\s+', ' ', title_to_guess).strip()
+
     try:
         # Use guessit for final parsing and media type identification
         guess = guessit(title_to_guess)
