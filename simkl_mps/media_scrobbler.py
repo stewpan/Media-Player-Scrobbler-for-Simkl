@@ -31,7 +31,7 @@ from simkl_mps.season_resolver import resolve_season_entry
 from simkl_mps.backlog_cleaner import BacklogCleaner
 from simkl_mps.rewatch import is_rewatch
 from simkl_mps.watched_library import WatchedLibrary
-from simkl_mps.window_detection import parse_movie_title, parse_filename_from_path, is_video_player
+from simkl_mps.window_detection import parse_movie_title, parse_filename_from_path, parse_media_title, is_video_player
 from simkl_mps.media_cache import MediaCache
 
 logger = logging.getLogger(__name__)
@@ -546,6 +546,37 @@ class MediaScrobbler:
         prev_name = os.path.basename(previous_filepath).lower()
         curr_name = os.path.basename(current_filepath).lower()
         return prev_name != curr_name
+
+    @staticmethod
+    def _normalize_title_tokens(title):
+        """Lowercase, strip punctuation, and split a title into a set of word tokens."""
+        return set(re.sub(r'[^a-z0-9 ]+', ' ', (title or '').lower()).split())
+
+    @classmethod
+    def _titles_roughly_match(cls, expected, candidate):
+        """True if two titles share enough word tokens to be the same work.
+
+        Used to reject Simkl file-search results whose title is unrelated to the
+        filename. Lenient on purpose (only rejects near-zero overlap) so legitimate
+        title variations (punctuation, ':' vs '-', extra words) still pass.
+        """
+        a, b = cls._normalize_title_tokens(expected), cls._normalize_title_tokens(candidate)
+        if not a or not b:
+            return True  # can't compare -> don't reject
+        overlap = len(a & b) / min(len(a), len(b))
+        return overlap >= 0.34
+
+    def _title_from_filename(self, filepath, guessit_info):
+        """Best-effort title parsed from the filename, for validating file-search results."""
+        try:
+            info = parse_media_title(os.path.basename(filepath))
+            if info and info.get('title'):
+                return info['title']
+        except Exception:
+            pass
+        if isinstance(guessit_info, dict) and guessit_info.get('title'):
+            return str(guessit_info['title'])
+        return None
 
     def _start_new_media_item(self, raw_title, filepath, initial_media_type_guess, guessit_info=None):
         """Starts tracking a new media item, sets initial state, and attempts identification."""
@@ -1094,6 +1125,26 @@ class MediaScrobbler:
                             logger.error(f"Failed to get valid Simkl detection after {max_retries} attempts for file '{filepath}'. Skipping.")
                             self._send_notification("Simkl Detection Failed", f" File skipped. Could not identify '{os.path.basename(filepath)}' after {max_retries} attempts.")
                             return  # Do not track or cache invalid entries
+
+            # Guard against Simkl /search/file mapping a file to a completely
+            # unrelated title (it occasionally returns the wrong show/movie).
+            # Verify the result is consistent with the title parsed from the
+            # filename before accepting it; otherwise fall back to title search.
+            if result:
+                media_item = result.get('show') or result.get('movie')
+                result_title = media_item.get('title', '') if media_item else ''
+                expected_title = self._title_from_filename(filepath, guessit_info)
+                if result_title and expected_title and not self._titles_roughly_match(expected_title, result_title):
+                    logger.warning(
+                        f"Simkl file search returned '{result_title}' for "
+                        f"'{os.path.basename(filepath)}' (expected ~'{expected_title}'). "
+                        f"Rejecting mismatch and falling back to title search."
+                    )
+                    if self.currently_tracking:
+                        self._identify_movie(self.currently_tracking)
+                    else:
+                        self._store_guessit_fallback_data(filepath, guessit_info, cache_key)
+                    return
 
             # Existing logic for processing valid results
             if result:

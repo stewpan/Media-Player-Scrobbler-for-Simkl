@@ -208,3 +208,30 @@ def test_display_suffix_show(scrobbler):
 def test_display_suffix_movie_is_empty(scrobbler):
     scrobbler.media_type = "movie"
     assert scrobbler._build_episode_display_suffix() == ""
+
+
+# --- file-search result validation --------------------------------------------
+
+def test_titles_roughly_match_rejects_unrelated():
+    # Regression: Simkl /search/file returned "ZB1's ROCK Festival" for an Avatar file.
+    assert MediaScrobbler._titles_roughly_match("Avatar The Last Airbender", "ZB1's ROCK Festival") is False
+
+
+@pytest.mark.parametrize("expected, candidate", [
+    ("Avatar The Last Airbender", "Avatar: The Last Airbender"),  # punctuation variant
+    ("The Office US", "The Office"),                              # extra word
+    ("Game of Thrones", "Game of Thrones"),                      # exact
+])
+def test_titles_roughly_match_accepts_variants(expected, candidate):
+    assert MediaScrobbler._titles_roughly_match(expected, candidate) is True
+
+
+def test_titles_roughly_match_unknown_does_not_reject():
+    # Missing data must not cause a false rejection.
+    assert MediaScrobbler._titles_roughly_match("", "ZB1's ROCK Festival") is True
+    assert MediaScrobbler._titles_roughly_match("Avatar", "") is True
+
+
+def test_title_from_filename(scrobbler):
+    fn = "/tv/Avatar - The Last Airbender (2024) - S02E06 - The Parable [WEBDL-1080p]-FLUX.mkv"
+    assert "Last Airbender" in scrobbler._title_from_filename(fn, None)
