@@ -829,7 +829,7 @@ def parse_media_title(window_title_or_info):
 
     # Guessit treats ' - ' as a title separator, which truncates multi-word titles
     # like "Avatar - The Last Airbender (2024) - S02E05" to just "Avatar" and then
-    # mis-identifies them. Normalize hyphen separators (with surrounding spaces) to a
+    # misidentifies them. Normalize hyphen separators (with surrounding spaces) to a
     # space so the full title survives; hyphenated words like "Spider-Man" are untouched.
     title_to_guess = re.sub(r'\s+-\s+', ' ', title_to_guess).strip()
 

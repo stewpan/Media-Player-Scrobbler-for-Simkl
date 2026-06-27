@@ -119,7 +119,7 @@ def test_parse_filename_from_path_empty():
 
 def test_hyphenated_title_is_not_truncated():
     # Regression: "Avatar - The Last Airbender" must not be truncated to "Avatar"
-    # (which previously mis-identified to an unrelated show).
+    # (which previously misidentified to an unrelated show).
     info = parse_media_title("Avatar - The Last Airbender (2024) - S02E05")
     assert "Last Airbender" in info["title"]
     assert info["title"] != "Avatar"
