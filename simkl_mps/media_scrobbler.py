@@ -1721,6 +1721,10 @@ class MediaScrobbler:
         if self._current_is_rewatch:
             logger.info(f"Rewatch detected for '{display_title}' (ID: {self.simkl_id}).")
             self._log_playback_event("rewatch_detected", {"simkl_id": self.simkl_id, "type": self.media_type})
+            try:
+                self.watch_history.record_rewatch(self.simkl_id, self.media_type, self.movie_name)
+            except Exception as e:
+                logger.debug(f"Could not record rewatch timestamp: {e}")
             if get_setting('skip_rewatch_scrobble', True):
                 logger.info(f"Skipping re-scrobble of rewatch '{display_title}' (skip_rewatch_scrobble enabled).")
                 self.completed = True  # mark done so the monitor doesn't keep retrying

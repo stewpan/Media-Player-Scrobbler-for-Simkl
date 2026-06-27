@@ -56,6 +56,7 @@ export default function History() {
               <th>Type</th>
               <th>S/E</th>
               <th>Watched</th>
+              <th>Last rewatched</th>
             </tr>
           </thead>
           <tbody>
@@ -69,10 +70,11 @@ export default function History() {
                     : "—"}
                 </td>
                 <td className="muted">{(e.watched_at || "").slice(0, 10) || "—"}</td>
+                <td className="muted">{(e.last_rewatched_at || "").slice(0, 10) || ""}</td>
               </tr>
             ))}
             {rows.length === 0 && (
-              <tr><td colSpan={4} className="muted center">No entries</td></tr>
+              <tr><td colSpan={5} className="muted center">No entries</td></tr>
             )}
           </tbody>
         </table>

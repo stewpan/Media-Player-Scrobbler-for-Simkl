@@ -22,6 +22,7 @@ export interface HistoryEntry {
   title?: string;
   type?: string;
   watched_at?: string;
+  last_rewatched_at?: string;
   year?: number;
   poster_url?: string;
   season?: number;
