@@ -578,6 +578,21 @@ class MediaScrobbler:
             return str(guessit_info['title'])
         return None
 
+    def _match_is_confident(self, original_input, simkl_type, result_title):
+        """Whether a Simkl match is similar enough to what was played to trust it.
+
+        Guards against scrobbling a fuzzy best-guess for an unrelated/garbage title. Anime
+        are exempt because they legitimately have very different alternate titles
+        (e.g. "Attack on Titan" vs "Shingeki no Kyojin"), which a title-overlap check would
+        wrongly reject.
+        """
+        if simkl_type not in ('movie', 'show'):
+            return True
+        expected = self._title_from_filename(original_input, None) or original_input
+        if not expected or not result_title:
+            return True  # can't compare -> don't block
+        return self._titles_roughly_match(expected, result_title)
+
     def _start_new_media_item(self, raw_title, filepath, initial_media_type_guess, guessit_info=None):
         """Starts tracking a new media item, sets initial state, and attempts identification."""
         if not raw_title or raw_title.lower() in ["audio", "video", "media", "no file"]:
@@ -1289,6 +1304,23 @@ class MediaScrobbler:
 
         if not (media_item and 'ids' in media_item and media_item['ids'].get('simkl')):
             logger.warning(f"Simkl search found a result but no valid Simkl ID was present. Media item: {media_item}")
+            return
+
+        # Confidence guard: don't trust a fuzzy match whose title is clearly unrelated to
+        # what was played (prevents scrobbling garbage). Anime are exempt (alternate titles).
+        result_title = media_item.get('title', '')
+        if not self._match_is_confident(original_input, simkl_type, result_title):
+            expected_title = self._title_from_filename(original_input, None) or original_input
+            logger.warning(
+                f"Simkl match '{result_title}' is too dissimilar from '{expected_title}' "
+                f"(source: {source_description}). Skipping identification to avoid a wrong scrobble."
+            )
+            self._send_throttled_notification(
+                f"lowmatch_{cache_key}",
+                "Couldn't identify reliably",
+                f"'{expected_title}' didn't confidently match a Simkl title — not scrobbled.",
+                throttle_minutes=60,
+            )
             return
 
         self.simkl_id = media_item['ids']['simkl']
