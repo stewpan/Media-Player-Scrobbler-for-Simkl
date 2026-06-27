@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.8.1] - 2026-06-27
+
+### Fixed
+- Rewatch detection no longer assumes you watch episodes strictly in order. For titles
+  without a precise per-episode list, it now uses Simkl's progress pointers
+  (`next_to_watch` / `last_watched`): everything before the next-to-watch frontier counts
+  as watched, so a genuine first watch (at or beyond the frontier — e.g. a stand-alone
+  episode of a comedy or long-running show) is never wrongly skipped. Shows are compared
+  season-aware; anime (split one id per cour) by episode number. (#20)
+
 ## [2.8.0] - 2026-06-27
 
 ### Fixed
@@ -141,7 +151,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - macOS VLC window detection, credential loading and Simkl `412` handling, and
   Simkl season-level tracking for multi-season shows/anime.
 
-[Unreleased]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.8.0...HEAD
+[Unreleased]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.8.1...HEAD
+[2.8.1]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.8.0...v2.8.1
 [2.8.0]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.7.4...v2.8.0
 [2.7.4]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.7.3...v2.7.4
 [2.7.3]: https://github.com/ByteTrix/Media-Player-Scrobbler-for-Simkl/compare/v2.7.2...v2.7.3
