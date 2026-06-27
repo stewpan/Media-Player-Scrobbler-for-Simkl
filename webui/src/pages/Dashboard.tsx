@@ -1,4 +1,5 @@
-import { api, Status } from "../api";
+import { useState } from "react";
+import { api, Status, Library } from "../api";
 import { usePoll, formatTime } from "../hooks";
 
 function NowPlaying({ status }: { status: Status }) {
@@ -48,7 +49,21 @@ function NowPlaying({ status }: { status: Status }) {
 export default function Dashboard() {
   const { data: status } = usePoll(api.status, 2000);
   const { data: stats } = usePoll(api.stats, 10000);
-  const { data: library } = usePoll(api.library, 30000);
+  const { data: polledLibrary } = usePoll(api.library, 30000);
+  const [synced, setSynced] = useState<Library | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const library = synced ?? polledLibrary;
+
+  const syncNow = async () => {
+    setSyncing(true);
+    try {
+      setSynced(await api.syncLibrary());
+    } catch {
+      /* leave the polled value in place */
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   return (
     <div className="stack">
@@ -74,9 +89,14 @@ export default function Dashboard() {
       </div>
 
       {library && library.total > 0 && (
-        <div className="card muted" style={{ fontSize: "0.88rem" }}>
-          Local Simkl copy (used for rewatch detection): {library.movies} movies · {library.shows} shows · {library.anime} anime
-          {library.synced_at ? ` · synced ${library.synced_at.slice(0, 10)}` : ""}
+        <div className="card" style={{ fontSize: "0.88rem", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem" }}>
+          <span className="muted">
+            Local Simkl copy (used for rewatch detection): {library.movies} movies · {library.shows} shows · {library.anime} anime
+            {library.synced_at ? ` · synced ${library.synced_at.slice(0, 10)}` : ""}
+          </span>
+          <button className="btn" onClick={syncNow} disabled={syncing} style={{ whiteSpace: "nowrap" }}>
+            {syncing ? "Syncing…" : "Sync now"}
+          </button>
         </div>
       )}
     </div>
