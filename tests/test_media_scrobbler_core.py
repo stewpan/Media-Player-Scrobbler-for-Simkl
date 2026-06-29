@@ -68,6 +68,52 @@ def test_is_complete_not_tracking(scrobbler):
     assert scrobbler.is_complete() is False
 
 
+# --- runtime plausibility guard -----------------------------------------------
+
+def test_is_complete_blocked_when_played_far_shorter_than_runtime(scrobbler):
+    # A 9-minute file claiming to be a 90-minute film must NOT complete, even at 100%.
+    scrobbler.currently_tracking = "Some Movie"
+    scrobbler.completed = False
+    scrobbler.completion_threshold = 80
+    scrobbler.current_position_seconds = 540  # 9 min, 100% of the (wrong) file length
+    scrobbler.total_duration_seconds = 540    # player/file says 9 min
+    scrobbler.runtime_seconds = 90 * 60       # Simkl says 90 min
+    assert scrobbler.is_complete() is False
+
+
+def test_is_complete_allows_minor_runtime_difference(scrobbler):
+    # An 88-min file of a 90-min film is plausible — must still complete.
+    scrobbler.currently_tracking = "Some Movie"
+    scrobbler.completed = False
+    scrobbler.completion_threshold = 80
+    scrobbler.current_position_seconds = 88 * 60
+    scrobbler.total_duration_seconds = 88 * 60
+    scrobbler.runtime_seconds = 90 * 60
+    assert scrobbler.is_complete() is True
+
+
+def test_is_complete_allows_longer_than_official_runtime(scrobbler):
+    # Extended cut / trailing credits: longer than Simkl's runtime is fine.
+    scrobbler.currently_tracking = "Some Movie"
+    scrobbler.completed = False
+    scrobbler.completion_threshold = 80
+    scrobbler.current_position_seconds = 110 * 60
+    scrobbler.total_duration_seconds = 120 * 60
+    scrobbler.runtime_seconds = 90 * 60
+    assert scrobbler.is_complete() is True
+
+
+def test_is_complete_no_runtime_known_does_not_block(scrobbler):
+    # Without an official runtime we can't tell — guard must stay out of the way.
+    scrobbler.currently_tracking = "Some Movie"
+    scrobbler.completed = False
+    scrobbler.completion_threshold = 80
+    scrobbler.current_position_seconds = 80
+    scrobbler.total_duration_seconds = 100
+    scrobbler.runtime_seconds = None
+    assert scrobbler.is_complete() is True
+
+
 # --- _build_add_to_history_payload --------------------------------------------
 
 def test_payload_movie(scrobbler):

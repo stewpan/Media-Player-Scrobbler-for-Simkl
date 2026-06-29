@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.8.5] - 2026-06-29
+
+### Fixed
+- **Runtime-plausibility guard against false completions.** A title is no longer marked as
+  watched/rewatched when the media actually being played is far shorter than its official
+  Simkl runtime (below 50%) — e.g. watching a 9-minute clip that was identified as a
+  90-minute film. Such files are treated as a clip/sample/wrong file and skipped, with a
+  desktop notification explaining the mismatch. Longer-than-listed durations (extended cuts,
+  trailing credits) are unaffected, and titles with no known runtime still scrobble as before.
+
 ## [2.8.4] - 2026-06-27
 
 ### Added

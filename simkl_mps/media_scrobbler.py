@@ -94,6 +94,12 @@ class MediaScrobbler:
     
     # Class constants
     MAX_BACKLOG_ATTEMPTS = 5  # Maximum retry attempts for backlog items
+    # Runtime-plausibility guard: if the media actually being played is shorter
+    # than this fraction of the title's official Simkl runtime, it's almost
+    # certainly a clip / sample / wrong file rather than the full work, so we
+    # refuse to mark it complete (and therefore never scrobble it). Being
+    # *longer* than the official runtime is fine (extended cuts, trailing credits).
+    RUNTIME_PLAUSIBILITY_RATIO = 0.5
 
     def __init__(self, app_data_dir, client_id=None, access_token=None, testing_mode=False):
         self.app_data_dir = pathlib.Path(app_data_dir) # Ensure it's a Path object
@@ -131,6 +137,7 @@ class MediaScrobbler:
         self.completed = False
         self.current_position_seconds = 0
         self.total_duration_seconds = None
+        self.runtime_seconds = None # Official Simkl runtime (seconds), used as a sanity check vs the played duration
         self.current_filepath = None # Store the last known filepath
         self.media_type = None # 'movie', 'episode' (from guessit), 'show', 'anime' (from simkl)
         self.season = None # Season number for episodes
@@ -612,6 +619,7 @@ class MediaScrobbler:
         self.current_position_seconds = 0
         self.total_duration_seconds = None # Will be updated by player or API
         self.estimated_duration = None
+        self.runtime_seconds = None # Will be set from the Simkl identification / cache
 
         # Reset Simkl-specific details for the new item
         self.simkl_id = None
@@ -760,10 +768,16 @@ class MediaScrobbler:
 
         self._derive_display_season_episode()
         
-        if 'duration_seconds' in cached_info and self.total_duration_seconds is None:
-            self.total_duration_seconds = cached_info['duration_seconds']
-            self.estimated_duration = self.total_duration_seconds
-            logger.info(f"Set duration from cache for '{self.movie_name}': {self.total_duration_seconds}s")
+        if cached_info.get('duration_seconds'):
+            # The cached duration originates from Simkl's runtime, so use it as the
+            # official-runtime reference for the plausibility guard regardless of
+            # whether the player later reports its own (file) duration.
+            if self.runtime_seconds is None:
+                self.runtime_seconds = cached_info['duration_seconds']
+            if self.total_duration_seconds is None:
+                self.total_duration_seconds = cached_info['duration_seconds']
+                self.estimated_duration = self.total_duration_seconds
+                logger.info(f"Set duration from cache for '{self.movie_name}': {self.total_duration_seconds}s")
         
         # Send notification for cached identification if actively tracking this item
         if self.currently_tracking and self.movie_name and self.simkl_id:
@@ -1340,7 +1354,12 @@ class MediaScrobbler:
 
         year = media_item.get('year')
         runtime_minutes = media_item.get('runtime') or episode_details_from_api.get('runtime')
-        
+        if runtime_minutes:
+            try:
+                self.runtime_seconds = int(runtime_minutes) * 60
+            except (TypeError, ValueError):
+                pass
+
         log_parts = [
             f"Simkl identified '{original_input}' as: Type='{self.media_type}'",
             f"Title='{self.movie_name}'",
@@ -2701,10 +2720,44 @@ class MediaScrobbler:
                 self._send_notification(f"{media_label} Identified", notify_text, online_only=True)
 
 
+    def _duration_is_implausible(self):
+        """True when the media being played is far shorter than the title's official
+        Simkl runtime — a strong signal it's a clip/sample/wrong file, not the full work.
+
+        Returns False whenever we can't tell (no runtime known, no played duration, or
+        the played duration is at/above the official one) so the guard never blocks a
+        legitimate watch — including longer extended/director's cuts.
+        """
+        runtime = self.runtime_seconds
+        played = self.total_duration_seconds
+        if not runtime or not played or runtime <= 0 or played <= 0:
+            return False
+        return played < runtime * self.RUNTIME_PLAUSIBILITY_RATIO
+
     def is_complete(self, threshold_override=None):
         """Checks if the currently tracked media has met the completion threshold."""
         if not self.currently_tracking: return False
         if self.completed: return True # Already marked
+
+        # Runtime-plausibility guard: don't let a short clip / sample / wrong file
+        # complete just because it reached the threshold of its own (tiny) length.
+        if self._duration_is_implausible():
+            played = self.total_duration_seconds
+            runtime = self.runtime_seconds
+            logger.warning(
+                f"Runtime mismatch for '{self.movie_name or self.currently_tracking}': "
+                f"played media is ~{played / 60:.0f} min but Simkl lists ~{runtime / 60:.0f} min "
+                f"(< {self.RUNTIME_PLAUSIBILITY_RATIO:.0%}). Not marking complete / not scrobbling."
+            )
+            self._send_throttled_notification(
+                f"runtime_mismatch_{self.simkl_id or self.currently_tracking}",
+                "Scrobble skipped — runtime mismatch",
+                f"'{self.movie_name or self.currently_tracking}' is only ~{played / 60:.0f} min long, "
+                f"but Simkl lists ~{runtime / 60:.0f} min. Looks like a clip or the wrong file, "
+                f"so it was not marked as watched.",
+                throttle_minutes=60,
+            )
+            return False
 
         threshold_to_use = threshold_override if threshold_override is not None else self.completion_threshold
 
